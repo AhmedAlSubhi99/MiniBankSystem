@@ -12,17 +12,25 @@ namespace MiniBankSystem
         // File paths
         static string AccountsFilePath = "accounts.txt"; // File to store account details
         static string ReviewsFilePath = "reviews.txt"; // File to store reviews
-        static string reportFilePath = "report.txt"; // File to store daily report
+        static string ReportFilePath = "report.txt"; // File to store daily report
+        static string RequestFilePath = "requests.txt";
+        static string CustomersFilePath = "Customers.txt";
+        static string AdminFilePath = "Admins.txt";
 
         // Global lists
         static List<int> accountNumbers = new List<int>(); // List to store account numbers
         static List<string> accountNames = new List<string>(); // List to store account names
+        static List<string> NationalId = new List<string>(); // List to store account names
+        static List<string> Customers = new List<string>(); // List to store users
+        static List<string> Admins = new List<string>(); // List to store admin
         static List<double> balances = new List<double>(); // List to store account balances
         static List<double> loans = new List<double>(); // List to store loan amounts
         static List<string> Passwords = new List<string>(); // List to store passwords
+        static List<string> PinCodeCustomers = new List<string>(); // List to store Customers Pins
+        static List<string> PinCodeAdmins = new List<string>(); // List to store Admin Pins
         static List<string> transactions = new List<string>(); // List to store transaction history
         static List<string> transactionsLoan = new List<string>(); // List to store loan transaction history
-        static List<string> reportLines = new List<string>(); // List to store report lines
+        static List<string> reportLines = new List<string>(); // List to store daily report lines
         static List<string> reportMonth = new List<string>(); // List to store monthly report lines
         // Queue and Stack for account requests and reviews
         static Queue<string> createAccountRequests = new Queue<string>(); // Queue to store account requests
@@ -33,7 +41,7 @@ namespace MiniBankSystem
         static int lastAccountNumber;
 
         // Main method
-        static void Main()
+        public static void Main(string[] args)
         {
             // Run the bank system
             RunBankSystem();
@@ -41,17 +49,27 @@ namespace MiniBankSystem
         // System Utilities
         public static void DisplaySystemUtilitiesMenu()
         {
-            while (true)
-            {
-                Console.Clear();
-                Console.WriteLine("=== System Utilities ===");
-                Console.WriteLine("1. Initialize System");
-                Console.WriteLine("2. Shutdown System");
-                Console.WriteLine("3. Display Main Menu");
-                Console.WriteLine("4. Exit");
-                Console.Write("Select option: ");
+            Console.Clear();
+            bool choice = true;
 
-                switch (Console.ReadLine())
+            while (choice)
+            {
+                Console.ForegroundColor = ConsoleColor.White;
+                Console.WriteLine("╔══════════════════════════════╗");
+                Console.WriteLine("║      SYSTEM UTILITIES        ║");
+                Console.WriteLine("╠══════════════════════════════╣");
+                Console.WriteLine("║                              ║");
+                Console.WriteLine("║  1. Initialize System        ║");
+                Console.WriteLine("║  2. Shutdown System          ║");
+                Console.WriteLine("║  3. Display Main Menu        ║");
+                Console.WriteLine("║  4. Exit                     ║");
+                Console.WriteLine("║                              ║");
+                Console.WriteLine("╚══════════════════════════════╝");
+                Console.ResetColor();
+                Console.Write("\n  Select an option (1-4): ");
+                string ch = Console.ReadLine();
+
+                switch (ch)
                 {
                     case "1":
                         InitializeBankSystem(); // Initialize the bank system
@@ -63,6 +81,7 @@ namespace MiniBankSystem
                         DisplayLoginScreen(); // Display the main menu
                         break;
                     case "4":
+                        Console.WriteLine("Good Bye !!!! ");
                         return;
                     default:
                         Console.WriteLine("Invalid option!");
@@ -94,6 +113,11 @@ namespace MiniBankSystem
             // Clear in-memory data
             accountNumbers.Clear();
             accountNames.Clear();
+            NationalId.Clear();
+            PinCodeAdmins.Clear();
+            PinCodeCustomers.Clear();
+            Admins.Clear();
+            Customers.Clear();
             balances.Clear();
             loans.Clear();
             transactions.Clear();
@@ -104,6 +128,9 @@ namespace MiniBankSystem
             lastAccountNumber = 0;
 
             // Load data from files
+            LoadRequestsFromFile();
+            LoadAdminAccountsFromFile();
+            LoadCustomerAccountsFromFile();
             LoadAccountsFromFile();
             LoadReviews();
 
@@ -125,7 +152,10 @@ namespace MiniBankSystem
             Console.WriteLine("Shutting down the Mini Bank System...");
 
             // Save data before exiting
+            SaveRequeststoFile();
             SaveAccountsToFile();
+            SaveAdminAccountsToFile();
+            SaveCustomerAccountsToFile();
             SaveReviews();
 
             Console.WriteLine("All data saved successfully.");
@@ -145,7 +175,7 @@ namespace MiniBankSystem
             {
                 // Clear the console and set the color
                 Console.Clear();
-                Console.ForegroundColor = ConsoleColor.DarkBlue; // Set the color to dark blue
+                Console.ForegroundColor = ConsoleColor.DarkYellow; // Set the color to dark blue
 
                 Console.WriteLine("\n\n");
                 Console.WriteLine(@"              ____________________________");
@@ -163,17 +193,18 @@ namespace MiniBankSystem
                 Console.WriteLine(@"        |___|___________|___|____________|___|");
 
                 Console.ForegroundColor = ConsoleColor.White; // Reset the color to white
-                Console.WriteLine("\n  ╔════════════════════════════════════════════╗");
+                Console.WriteLine("\n                                                ");
+                Console.WriteLine("    ╔════════════════════════════════════════════╗");
                 Console.WriteLine("    ║                                            ║");
                 Console.WriteLine("    ║            ACCOUNT ACCESS MENU             ║");
                 Console.WriteLine("    ║                                            ║");
                 Console.WriteLine("    ╠════════════════════════════════════════════╣");
                 Console.WriteLine("    ║                                            ║");
-                Console.WriteLine("    ║  1. 🏦  Customer Login                     ║");
-                Console.WriteLine("    ║  2. 🔐  Administrator Access               ║");
-                Console.WriteLine("    ║  3. 📝  New Account Registration           ║");
-                Console.WriteLine("    ║  4. ⚙️  System Utilities                   ║");
-                Console.WriteLine("    ║  5. 🚪  Exit System                        ║");
+                Console.WriteLine("    ║  1.   Customer Login                       ║");
+                Console.WriteLine("    ║  2.   Administrator Access                 ║");
+                Console.WriteLine("    ║  3.   New Account Registration             ║");
+                Console.WriteLine("    ║  4.   System Utilities                     ║");
+                Console.WriteLine("    ║  5.   Back                                 ║");
                 Console.WriteLine("    ║                                            ║");
                 Console.WriteLine("    ║     Please select an option (1-5)          ║");
                 Console.WriteLine("    ╚════════════════════════════════════════════╝");
@@ -190,13 +221,30 @@ namespace MiniBankSystem
                         AdminLogin(); // Admin login
                         break;
                     case "3":
-                        CustomerSignUp(); // Customer sign up
+                        Console.WriteLine("Choose you are: Admin/Customer ");
+                        string Check = Console.ReadLine();
+
+                        if (Check == "Admin")
+                        {
+                            AdminSignUp();
+                            break;
+                        }
+                        else if (Check == "Customer")
+                        {
+                            CustomerSignUp(); // Customer sign up
+                        }
                         break;
                     case "4":
+                        SaveRequeststoFile();
+                        SaveAdminAccountsToFile();
+                        SaveCustomerAccountsToFile();
                         SaveAccountsToFile(); // Save accounts to file
                         SaveReviews(); // Save reviews to file
                         GO = false; // Exit the loop
-                        return;
+                        break;
+                    case "5":
+                        DisplaySystemUtilitiesMenu();
+                        break;
                     default:
                         Console.WriteLine("Invalid option. Press any key to continue...");
                         Console.ReadLine();
@@ -205,31 +253,75 @@ namespace MiniBankSystem
             }
         }
 
-        // Sigin Up for Customer
+        // Sigin Up for Customer and admin
         public static void CustomerSignUp()
         {
             Console.Clear();
             Console.WriteLine("=== Customer Sign Up ===");
             Console.WriteLine("Please fill in the following details to create a new account.");
             Console.WriteLine("===================================");
-            // Get user details
-            Console.Write("Enter your full name: ");
-            string name = Console.ReadLine();
-            Console.Write("Enter your National ID: ");
-            string nationalID = Console.ReadLine();
+            // Get user details with name validation loop
+            string name;
+            while (true)
+            {
+                Console.Write("Enter Your ID Name: ");
+                name = Console.ReadLine();
 
-            // Generate a new account number
-            int newAccountNumber = GenerateAccountNumber(); // Generate a unique account number
-            accountNumbers.Add(newAccountNumber); // Add the new account number to the list
-            accountNames.Add(name); // Add the account name to the list
-            balances.Add(0.0); // Initial balance
-            loans.Add(0.0); // Initial loan amount
+                if (Customers.Contains(name))
+                {
+                    Console.WriteLine("Name already exists. Please choose a different name.");
+                }
+                else
+                {
+                    break; // Exit the loop if name is unique
+                }
+            }
+
+            Customers.Add(name); // Add the account name to the list
+
             // Choose password
-            Console.Write("Enter a password: ");
-            string password = Console.ReadLine();
-            Passwords.Add(password);
-            transactions.Add(""); // Empty transaction history
-            Console.WriteLine($"Account created successfully! Your Account Number is: {newAccountNumber}");
+            Console.Write("Enter a New Pin: ");
+            string pin = Console.ReadLine();
+            PinCodeCustomers.Add(pin);
+
+            Console.WriteLine($"Customer Account created successfully! Your Name ID is: {name}");
+            Console.WriteLine("Press any key to continue...");
+            Console.ReadLine();
+        }
+
+        public static void AdminSignUp()
+        {
+            Console.Clear();
+            Console.WriteLine("=== Admin Sign Up ===");
+            Console.WriteLine("Please fill in the following details to create a new account.");
+            Console.WriteLine("===================================");
+            // Get user details with name validation loop
+            string admin;
+            while (true)
+            {
+                Console.Write("Enter Your Admin ID: ");
+                admin = Console.ReadLine();
+
+                if (Admins.Contains(admin))
+                {
+                    Console.WriteLine("Name already exists. Please choose a different name.");
+                }
+                else
+                {
+                    break; // Exit the loop if name is unique
+                }
+            }
+
+            Admins.Add(admin); // Add the account name to the list
+
+            // Choose password
+            Console.Write("Enter a New Pin: ");
+            string pin = Console.ReadLine();
+            PinCodeAdmins.Add(pin);
+
+            Console.WriteLine($"Customer Account created successfully! Your Name ID is: {admin}");
+            Console.WriteLine("Press any key to continue...");
+            Console.ReadLine();
         }
 
         // Customer Login and Menu
@@ -240,12 +332,12 @@ namespace MiniBankSystem
             Console.WriteLine("Please enter your account number and password to log in.");
             Console.WriteLine("===================================");
             // Get user Info
-            Console.Write("Enter Account Number: ");
-            int accountNumber = int.Parse(Console.ReadLine());
-            Console.Write("Enter Password: ");
-            string password = Console.ReadLine();
-            // Check if the account number and password are valid
-            if (accountNumbers.Contains(accountNumber) && Passwords[accountNumbers.IndexOf(accountNumber)] == password)
+            Console.Write("Enter User ID: ");
+            string name = Console.ReadLine();
+            Console.Write("Enter Pin: ");
+            string pin = Console.ReadLine();
+            // Check if the User ID and Pin are valid
+            if (Customers.Contains(name) && PinCodeCustomers.Contains(pin))
             {
                 DisplayCustomerMenu(); // Display the customer menu
             }
@@ -259,29 +351,30 @@ namespace MiniBankSystem
         {
             while (true)
             {
-                Console.Clear();
-                Console.ForegroundColor = ConsoleColor.DarkBlue; // Set the color to dark blue
+              Console.Clear();
+              Console.ForegroundColor = ConsoleColor.White; // Set the color to dark blue
 
-                Console.WriteLine("\n");
+              Console.WriteLine("\n");
               Console.WriteLine("    ╔══════════════════════════════════════╗");
               Console.WriteLine("    ║   █▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█   ║");
               Console.WriteLine("    ║   █         CUSTOMER MENU        █   ║");
               Console.WriteLine("    ║   █▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█   ║");
               Console.WriteLine("    ╠══════════════════════════════════════╣");
               Console.WriteLine("    ║                                      ║");
-              Console.WriteLine("    ║  [0] 💰  Check Balance               ║");
-              Console.WriteLine("    ║  [1] 📥  Deposit                     ║");
-              Console.WriteLine("    ║  [2] 📤  Withdraw                    ║");
-              Console.WriteLine("    ║  [3] 🔄  Transfer                    ║");
-              Console.WriteLine("    ║  [4] 📜  Transaction History         ║");
-              Console.WriteLine("    ║  [5] 🆔  Account Details             ║");
-              Console.WriteLine("    ║  [6] 🏦  Apply for Loan              ║");
-              Console.WriteLine("    ║  [7] 🌟  Submit Review               ║");
-              Console.WriteLine("    ║  [8] ➕  Request New Account         ║");
-              Console.WriteLine("    ║  [9] 🔒  Change Password             ║");
-              Console.WriteLine("    ║  [10] 📊  Account Statement          ║");
-              Console.WriteLine("    ║  [11] 💱  Currency Converter         ║");
-              Console.WriteLine("    ║  [12] 🚪  Logout                     ║");
+              Console.WriteLine("    ║  [0]   Check Balance                 ║");
+              Console.WriteLine("    ║  [1]   Deposit                       ║");
+              Console.WriteLine("    ║  [2]   Withdraw                      ║");
+              Console.WriteLine("    ║  [3]   Transfer                      ║");
+              Console.WriteLine("    ║  [4]   Transaction History           ║");
+              Console.WriteLine("    ║  [5]   Account Details               ║");
+              Console.WriteLine("    ║  [6]   Apply for Loan                ║");
+              Console.WriteLine("    ║  [7]   Submit Review                 ║");
+              Console.WriteLine("    ║  [8]   Request New Account           ║");
+              Console.WriteLine("    ║  [9]   Change Password               ║");
+              Console.WriteLine("    ║  [10]   Account Statement            ║");
+              Console.WriteLine("    ║  [11]   Currency Converter           ║");
+              Console.WriteLine("    ║  [12]   Change Pin                   ║");
+              Console.WriteLine("    ║  [13]   Logout                       ║");
               Console.WriteLine("    ║                                      ║");
               Console.WriteLine("    ╚══════════════════════════════════════╝");
 
@@ -327,7 +420,10 @@ namespace MiniBankSystem
                         CurrencyConverter(); // Currency converter 
                         break;
                     case "12":
-                        Console.WriteLine("Logging out...");
+                        ChangePinCustomers();
+                        break;
+                    case "13":
+                        Console.WriteLine("Login Out .........");
                         return;
                     default:
                         Console.WriteLine("Invalid option!");
@@ -347,11 +443,11 @@ namespace MiniBankSystem
             Console.WriteLine("===================================");
             // Get admin info
             Console.Write("Enter Admin Username: ");
-            string username = Console.ReadLine();
-            Console.Write("Enter Admin Password: ");
-            string password = Console.ReadLine();
-            // Check if the username and password are valid
-            if (username == "admin" && password == "admin")
+            string Admin = Console.ReadLine();
+            Console.Write("Enter Admin Pin: ");
+            string AdminPin = Console.ReadLine();
+            // Check if the Addmin Name and Pin are valid
+            if (Admins.Contains(Admin) && PinCodeAdmins.Contains(AdminPin))
             {
                 DisplayAdminMenu(); // Display the admin menu
             }
@@ -367,7 +463,7 @@ namespace MiniBankSystem
             while (true)
             {
                 Console.Clear();
-                Console.ForegroundColor = ConsoleColor.DarkBlue; // Set the color to cyan
+                Console.ForegroundColor = ConsoleColor.White; // Set the color to cyan
 
                 Console.WriteLine("\n");
                 Console.WriteLine("    ╔══════════════════════════════════════╗");
@@ -376,21 +472,23 @@ namespace MiniBankSystem
                 Console.WriteLine("    ║   █▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█   ║");
                 Console.WriteLine("    ╠══════════════════════════════════════╣");
                 Console.WriteLine("    ║                                      ║");
-                Console.WriteLine("    ║  [1] 👥  Account Management          ║");
-                Console.WriteLine("    ║  [2] 💰  Transaction Processing      ║");
-                Console.WriteLine("    ║  [3] 🏦  Loan Management             ║");
-                Console.WriteLine("    ║  [4] 🌟  Reviews                     ║");
-                Console.WriteLine("    ║  [5] 📊  Reporting                   ║");
-                Console.WriteLine("    ║  [6] 📩  Requests                    ║");
-                Console.WriteLine("    ║  [7] ⚙️  Process Account Requests    ║");
-                Console.WriteLine("    ║  [8] 🔒  Change Password             ║");
-                Console.WriteLine("    ║  [9] 🔍  Find Account                ║");
-                Console.WriteLine("    ║  [10] 🚪  Logout                     ║");
+                Console.WriteLine("    ║  [1]   Account Management            ║");
+                Console.WriteLine("    ║  [2]   Transaction Processing        ║");
+                Console.WriteLine("    ║  [3]   Loan Management               ║");
+                Console.WriteLine("    ║  [4]   Reviews                       ║");
+                Console.WriteLine("    ║  [5]   Reporting                     ║");
+                Console.WriteLine("    ║  [6]   Requests                      ║");
+                Console.WriteLine("    ║  [7]   Process Account Requests      ║");
+                Console.WriteLine("    ║  [8]   Change Password               ║");
+                Console.WriteLine("    ║  [9]   Find Account                  ║");
+                Console.WriteLine("    ║  [10]   Change Pin                   ║");
+                Console.WriteLine("    ║  [11]   Show Top Three Richest       ║");
+                Console.WriteLine("    ║  [12]   Logout                       ║");
                 Console.WriteLine("    ║                                      ║");
                 Console.WriteLine("    ╚══════════════════════════════════════╝");
 
                 Console.ResetColor();
-                Console.Write("\n    Select an option (1-10): ");
+                Console.Write("\n    Select an option (1-12): ");
                 string choice = Console.ReadLine();
 
                 switch (choice)
@@ -418,13 +516,35 @@ namespace MiniBankSystem
                         break;
                     case "8":
                         ChangePassowrd(); // Change password
-                        break;
+                        break;                       
+                    // Find Account
                     case "9":
-                        Console.Write("Enter Account Number: ");
-                        int accountNumber = int.Parse(Console.ReadLine());
-                        FindAccount(accountNumber); // Find account
-                        break;
+                        Console.WriteLine("Choose You Want Find Account By Name Or By Account Number");
+                        string choose = Console.ReadLine();
+                        if (choose == "Name")
+                        {
+                            SearchAccountByNameOrID();
+                            break;
+                        }
+                        else if (choose == "Acoount Number")
+                        {
+                            Console.Write("Enter Account Number: ");
+                            int accountNumber = int.Parse(Console.ReadLine());
+                            FindAccount(accountNumber); // Find account
+                            break;
+                        }
+                        else
+                        {
+                            Console.WriteLine("Try Again Choice (Name or Account Number)");
+                            break;
+                        }
                     case "10":
+                        ChangePinAdmin(); // Change Pin
+                        break;
+                    case "11":
+                        ShowTopRichestCustomers();
+                        break;                      
+                    case "12":
                         Console.WriteLine("Logging out...");
                         return;
                     default:
@@ -445,7 +565,7 @@ namespace MiniBankSystem
             while (true)
             {
                 Console.Clear();
-                Console.ForegroundColor = ConsoleColor.DarkBlue;
+                Console.ForegroundColor = ConsoleColor.White;
 
                 Console.WriteLine("\n");
                 Console.WriteLine("    ╔══════════════════════════════════════╗");
@@ -454,11 +574,12 @@ namespace MiniBankSystem
                 Console.WriteLine("    ║   █▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█   ║");
                 Console.WriteLine("    ╠══════════════════════════════════════╣");
                 Console.WriteLine("    ║                                      ║");
-                Console.WriteLine("    ║  [1] ➕  Create New Account          ║");
-                Console.WriteLine("    ║  [2] ❌  Close Account               ║");
-                Console.WriteLine("    ║  [3] 🔍  View Account Details        ║");
-                Console.WriteLine("    ║  [4] 📋  List All Accounts           ║");
-                Console.WriteLine("    ║  [5] ↩️  Back to Admin Menu           ║");
+                Console.WriteLine("    ║  [1]   Create New Account            ║");
+                Console.WriteLine("    ║  [2]   Close Account                 ║");
+                Console.WriteLine("    ║  [3]   View Account Details          ║");
+                Console.WriteLine("    ║  [4]   List All Accounts             ║");
+                Console.WriteLine("    ║  [5]   Export All Accounts To File   ║");
+                Console.WriteLine("    ║  [6]   Back to Admin Menu            ║");
                 Console.WriteLine("    ║                                      ║");
                 Console.WriteLine("    ╚══════════════════════════════════════╝");
 
@@ -481,6 +602,9 @@ namespace MiniBankSystem
                         ListAllAccounts(); // List all accounts
                         break;
                     case "5":
+                        ExportAllAccountsToFile();
+                        break;          
+                    case "6":
                         return;
                     default:
                         Console.WriteLine("Invalid option!");
@@ -498,7 +622,7 @@ namespace MiniBankSystem
             while (true)
             { 
                 Console.Clear();
-                Console.ForegroundColor = ConsoleColor.DarkBlue; // Set the color to dark blue
+                Console.ForegroundColor = ConsoleColor.White; // Set the color to dark blue
 
                Console.WriteLine("\n");
                Console.WriteLine("    ╔══════════════════════════════════════╗");
@@ -507,13 +631,13 @@ namespace MiniBankSystem
                Console.WriteLine("    ║   █▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█   ║");
                Console.WriteLine("    ╠══════════════════════════════════════╣");
                Console.WriteLine("    ║                                      ║");
-               Console.WriteLine("    ║  [1] 📥  Deposit                     ║");
-               Console.WriteLine("    ║  [2] 📤  Withdrawal                  ║");
-               Console.WriteLine("    ║  [3] 🔄  Transfer                    ║");
-               Console.WriteLine("    ║  [4] 💰  Check Balance               ║");
-               Console.WriteLine("    ║  [5] 📜  Transaction History         ║");
-               Console.WriteLine("    ║  [6] 🔁  Recurring Deposit           ║");
-               Console.WriteLine("    ║  [7] ↩️  Back to Admin Menu           ║");
+               Console.WriteLine("    ║  [1]   Deposit                       ║");
+               Console.WriteLine("    ║  [2]   Withdrawal                    ║");
+               Console.WriteLine("    ║  [3]   Transfer                      ║");
+               Console.WriteLine("    ║  [4]   Check Balance                 ║");
+               Console.WriteLine("    ║  [5]   Transaction History           ║");
+               Console.WriteLine("    ║  [6]   Recurring Deposit             ║");
+               Console.WriteLine("    ║  [7]   Back to Admin Menu            ║");
                Console.WriteLine("    ║                                      ║");
                Console.WriteLine("    ╚══════════════════════════════════════╝");
 
@@ -560,7 +684,7 @@ namespace MiniBankSystem
             while (true)
             {
                 Console.Clear();
-                Console.ForegroundColor = ConsoleColor.DarkBlue; // Set the color to dark blue
+                Console.ForegroundColor = ConsoleColor.White; // Set the color to dark blue
 
                 Console.WriteLine("\n");
                 Console.WriteLine("    ╔══════════════════════════════════════╗");
@@ -569,9 +693,9 @@ namespace MiniBankSystem
                 Console.WriteLine("    ║   █▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█   ║");
                 Console.WriteLine("    ╠══════════════════════════════════════╣");
                 Console.WriteLine("    ║                                      ║");
-                Console.WriteLine("    ║  [1] ✅  Approve Loan Application    ║");
-                Console.WriteLine("    ║  [2] 💵  Process Loan Payment        ║");
-                Console.WriteLine("    ║  [3] ↩️  Back to Admin Menu           ║");
+                Console.WriteLine("    ║  [1]   Approve Loan Application      ║");
+                Console.WriteLine("    ║  [2]   Process Loan Payment          ║");
+                Console.WriteLine("    ║  [3]   Back to Admin Menu            ║");
                 Console.WriteLine("    ║                                      ║");
                 Console.WriteLine("    ╚══════════════════════════════════════╝");
 
@@ -606,7 +730,7 @@ namespace MiniBankSystem
             while (true)
             {
                 Console.Clear();
-                Console.ForegroundColor = ConsoleColor.DarkBlue; // Set the color to dark blue
+                Console.ForegroundColor = ConsoleColor.White; // Set the color to dark blue
 
                 Console.WriteLine("\n");
                 Console.WriteLine("    ╔══════════════════════════════════════╗");
@@ -615,9 +739,9 @@ namespace MiniBankSystem
                 Console.WriteLine("    ║   █▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█   ║");
                 Console.WriteLine("    ╠══════════════════════════════════════╣");
                 Console.WriteLine("    ║                                      ║");
-                Console.WriteLine("    ║  [1] 📅  Generate Daily Report       ║");
-                Console.WriteLine("    ║  [2] 📆  Generate Monthly Statement  ║");
-                Console.WriteLine("    ║  [3] ↩️  Back to Admin Menu           ║");
+                Console.WriteLine("    ║  [1]   Generate Daily Report         ║");
+                Console.WriteLine("    ║  [2]   Generate Monthly Statement    ║");
+                Console.WriteLine("    ║  [3]   Back to Admin Menu            ║");
                 Console.WriteLine("    ║                                      ║");
                 Console.WriteLine("    ╚══════════════════════════════════════╝");
 
@@ -675,18 +799,40 @@ namespace MiniBankSystem
         public static void RequestNewAccounts()
         {
             Console.Clear();
-            // Display the request new account screen
             Console.WriteLine("=== Request New Account ===");
             Console.WriteLine("Please fill in the following details to request a new account.");
             Console.WriteLine("===================================");
-            // Get user details
+
             Console.Write("Enter your full name: ");
             string name = Console.ReadLine();
+
             Console.Write("Enter your National ID: ");
             string nationalID = Console.ReadLine();
-            string request = $"{name}||{nationalID}";
-            createAccountRequests.Enqueue(request); // Enqueue the request
+
+            // Check if the National ID already exists in approved accounts
+            if (NationalId.Contains(nationalID))
+            {
+                Console.WriteLine("An account with this National ID already exists.");
+                return;
+            }
+
+            // Check if the National ID already exists in pending requests
+            foreach (string request in createAccountRequests)
+            {
+                string[] parts = request.Split("||");
+                if (parts.Length > 1 && parts[1].Trim() == nationalID)
+                {
+                    Console.WriteLine("A request with this National ID is already pending.");
+                    return;
+                }
+            }
+
+            // If passed both checks, enqueue the request
+            string newRequest = $"{name}||{nationalID}";
+            createAccountRequests.Enqueue(newRequest);
             Console.WriteLine("Your request has been submitted successfully.");
+            Console.WriteLine("Press any key to continue...");
+            Console.ReadLine();
         }
 
         // Process Account Requests
@@ -703,39 +849,81 @@ namespace MiniBankSystem
                 return;
             }
             // Process each request in the queue
-            while (createAccountRequests.Count > 0) // loop through the requests
+            while (createAccountRequests.Count > 0)
             {
-                string request = createAccountRequests.Dequeue();
-                string[] parts = request.Split("||"); // Split the request into name and national ID
-                string name = parts[0]; // Get the name
-                string nationalID = parts[1]; // Get the national ID
-                Console.WriteLine($"Processing request for {name} with ID: {nationalID}");
-                // Ask for approval
+                 Console.Clear();
+                 Console.WriteLine("╔════════════════════════════════════════════╗");
+                 Console.WriteLine("║       PENDING ACCOUNT CREATION REQUESTS    ║");
+                 Console.WriteLine("╠════════════════════════════════════════════╣");
+
+                 // Display all pending requests with numbers
+                 int requestNumber = 1;
+
+                 foreach (string request in createAccountRequests)
+                 {
+                    string[] parts = request.Split("||");
+                    Console.WriteLine($"║ {requestNumber}. {parts[0],-20} (ID: {parts[1]})");
+                    requestNumber++;
+                 }
+
+                Console.WriteLine("╚════════════════════════════════════════════╝");
+
+                // Let admin choose which request to process
+                Console.Write("\nEnter request number to process (0 to exit): " , createAccountRequests.Count);
+                int selected = int.Parse(Console.ReadLine());
+
+                if (selected == 0) break; // Exit option
+                if (selected < 1 || selected > createAccountRequests.Count) continue;
+                // Process selected request
+                string selectRequest = createAccountRequests.ElementAt (selected - 1);
+                string[] selectedParts = selectRequest.Split("||");
+                string name = selectedParts[0];
+                string nationalID = selectedParts[1];
+
+                Console.Clear();
+                Console.WriteLine($"╔════════════════════════════════════════════╗");
+                Console.WriteLine($"║ PROCESSING: {name,-20} (ID: {nationalID})  ║");
+                Console.WriteLine($"╚════════════════════════════════════════════╝");
+
                 Console.Write("Approve this request? (y/n): ");
                 string response = Console.ReadLine();
-                Console.WriteLine(response);
-                if (response.ToLower() == "y") // Check if the response is yes
+
+                if (response == "y")
                 {
                     // Create new account
-                    int newAccountNumber = ++lastAccountNumber; // Generate a unique account number
-                    accountNumbers.Add(newAccountNumber); // Add the new account number to the list
-                    accountNames.Add(name); // Add the account name to the list
-                    balances.Add(0.0); // Initial balance
-                    loans.Add(0.0); // Initial loan amount
-                    // Choose password
+                    int newAccountNumber = GenerateAccountNumber();
+                    accountNumbers.Add(newAccountNumber); // Add account number to list
+                    accountNames.Add(name); // add name to list
+                    NationalId.Add(nationalID);
+                    balances.Add(0.0); // init balance
+                    loans.Add(0.0); // init loan
+
                     Console.Write("Enter a password: ");
                     string password = Console.ReadLine();
-                    Passwords.Add(password);
-                    transactions.Add(""); // Empty transaction history
-                    Console.WriteLine($"Account created successfully for {name} with Account Number: {newAccountNumber}");
+                    Passwords.Add(password); // Set password
+                    transactions.Add(""); // reset transactions
+
+                    Console.WriteLine($"\nAccount created successfully!");
+                    Console.WriteLine($"Account Number: {newAccountNumber}");
+                    Console.WriteLine($"Account Holder: {name}");
+                    Console.WriteLine($"National Id: {nationalID}");
                 }
+
                 else
                 {
-                    Console.WriteLine($"Request for {name} has been rejected.");
+                        Console.WriteLine($"Request for {name} has been rejected.");
                 }
-                Console.WriteLine("Press any key to continue...");
+                // Remove processed request
+                var requests = new Queue<string>();
+                foreach (string request in createAccountRequests)
+                if (request != selectRequest) requests.Enqueue(request);
+                createAccountRequests = requests;
+
+                Console.WriteLine("\nPress any key to continue...");
                 Console.ReadLine();
+                
             }
+
         }
 
         // Create New Account
@@ -1347,7 +1535,7 @@ namespace MiniBankSystem
             // Save the report to a file
             try
             {
-                using (StreamWriter writer = new StreamWriter(reportFilePath))
+                using (StreamWriter writer = new StreamWriter(ReportFilePath))
                 {
                     foreach (var line in reportLines)
                     {
@@ -1390,7 +1578,7 @@ namespace MiniBankSystem
             // Save the statement to a file
             try
             {
-                using (StreamWriter writer = new StreamWriter(reportFilePath))
+                using (StreamWriter writer = new StreamWriter(ReportFilePath))
                 {
                     foreach (var line in reportMonth)
                     {
@@ -1497,6 +1685,260 @@ namespace MiniBankSystem
             }
         }
 
+        // Save and Load Customers and Admin Accounts and Requests
+        static void SaveAdminAccountsToFile()
+        {
+            // Save account details to the file
+            if (Admins.Count == 0) // Check if there are any accounts
+            {
+                Console.WriteLine("No accounts to save.");
+                return;
+            }
+            // Check if the file exists
+            if (!File.Exists(AdminFilePath))
+            {
+                // Create the file if it doesn't exist
+                using (File.Create(AdminFilePath)) { }
+            }
+
+            try
+            {
+                using (StreamWriter writer = new StreamWriter(AdminFilePath))
+                {
+                    for (int i = 0; i < Admins.Count; i++)
+                    {
+                        // Write account details to the file
+                        writer.WriteLine($" ||{Admins[i]} || {PinCodeAdmins[i]} ||");
+                    }
+                }
+                Console.WriteLine("Admin Accounts saved successfully.");
+            }
+            catch
+            {
+                Console.WriteLine("Error saving file.");
+            }
+        }
+
+        static void LoadAdminAccountsFromFile()
+        {
+            // Check if the file exists
+            if (!File.Exists(AdminFilePath))
+            {
+                Console.WriteLine("No accounts found.");
+                return;
+            }
+            // Check if the file is empty
+            if (new FileInfo(AdminFilePath).Length == 0)
+            {
+                Console.WriteLine("No accounts found.");
+                return;
+            }
+            // Clear existing data
+            Admins.Clear(); // Clear the list of Admin
+            PinCodeAdmins.Clear(); // Clear the list of Admin Pin
+
+            // Read the file line by line
+            try
+            {
+                using (StreamReader reader = new StreamReader(AdminFilePath))
+                {
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        string[] parts = line.Split(','); // Split the line into parts
+                        Admins.Add(parts[0]); // Add the Admin to the list
+                        PinCodeAdmins.Add(parts[1]); // Add the Admin Pin to the list
+
+                    }
+                }
+                Console.WriteLine("Admin Accounts loaded successfully.");
+            }
+            catch
+            {
+                Console.WriteLine("Error loading admin accounts.");
+            }
+        }
+
+        static void SaveCustomerAccountsToFile()
+        {
+            // Save account details to the file
+            if (Customers.Count == 0) // Check if there are any accounts
+            {
+                Console.WriteLine("No accounts to save.");
+                return;
+            }
+            // Check if the file exists
+            if (!File.Exists(CustomersFilePath))
+            {
+                // Create the file if it doesn't exist
+                using (File.Create(CustomersFilePath)) { }
+            }
+
+            try
+            {
+                using (StreamWriter writer = new StreamWriter(CustomersFilePath))
+                {
+                    for (int i = 0; i < Customers.Count; i++)
+                    {
+                        // Write account details to the file
+                        writer.WriteLine($" ||{Customers[i]} || {PinCodeCustomers[i]} ||");
+                    }
+                }
+                Console.WriteLine("Customers Accounts saved successfully.");
+            }
+            catch
+            {
+                Console.WriteLine("Error saving file.");
+            }
+
+        }
+
+        static void LoadCustomerAccountsFromFile()
+        {
+            // Check if the file exists
+            if (!File.Exists(CustomersFilePath))
+            {
+                Console.WriteLine("No accounts found.");
+                return;
+            }
+            // Check if the file is empty
+            if (new FileInfo(CustomersFilePath).Length == 0)
+            {
+                Console.WriteLine("No accounts found.");
+                return;
+            }
+            // Clear existing data
+            Customers.Clear(); // Clear the list of Customer
+            PinCodeCustomers.Clear(); // Clear the list of Customer Pin
+
+            // Read the file line by line
+            try
+            {
+                using (StreamReader reader = new StreamReader(CustomersFilePath))
+                {
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        string[] parts = line.Split(','); // Split the line into parts
+                        Customers.Add(parts[0]); // Add the Admin to the list
+                        PinCodeCustomers.Add(parts[1]); // Add the Admin Pin to the list
+
+                    }
+                }
+                Console.WriteLine("Customer Accounts loaded successfully.");
+            }
+            catch
+            {
+                Console.WriteLine("Error loading Customer accounts.");
+            }
+        }
+
+        public static void SaveRequeststoFile()
+        {
+            // Check if there are any requests to save
+            if (createAccountRequests.Count == 0)
+            {
+                Console.WriteLine("No requests to save.");
+                return;
+            }
+
+            // Ensure the file exists
+            if (!File.Exists(RequestFilePath))
+            {
+                File.Create(RequestFilePath).Close();
+            }
+
+            try
+            {
+                using (StreamWriter writer = new StreamWriter(RequestFilePath))
+                {
+                    foreach (string request in createAccountRequests)
+                    {
+                        writer.WriteLine(request);
+                    }
+                }
+                Console.WriteLine("Account requests saved successfully.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving requests: {ex.Message}");
+            }
+        }
+
+        public static void LoadRequestsFromFile()
+        {
+            // Check if file exists
+            if (!File.Exists(RequestFilePath))
+            {
+                Console.WriteLine("No request file found.");
+                return;
+            }
+
+            // Clear existing requests
+            createAccountRequests.Clear();
+
+            try
+            {
+                using (StreamReader reader = new StreamReader(RequestFilePath))
+                {
+                    string line;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        if (!string.IsNullOrWhiteSpace(line))
+                        {
+                            createAccountRequests.Enqueue(line);
+                        }
+                    }
+                }
+                Console.WriteLine($"Loaded {createAccountRequests.Count} account requests.");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading requests: {ex.Message}");
+            }
+        }
+
+        public static void ExportAllAccountsToFile()
+        {
+            Console.Clear();
+            Console.WriteLine("=== Export All Account Info ===");
+
+            string exportFilePath = "AllAccountsExport.txt"; // You can change this to .txt if preferred
+
+            try
+            {
+                using (StreamWriter writer = new StreamWriter(exportFilePath))
+                {
+                    // Write headers
+                    writer.WriteLine("AccountNumber,Name,NationalID,Balance,Loan,Password,TransactionHistory,LoanTransactionHistory");
+
+                    // Write each account's info
+                    for (int i = 0; i < accountNumbers.Count; i++)
+                    {
+                        string line = $"{accountNumbers[i]}," +
+                                      $"{accountNames[i]}," +
+                                      $"{(i < NationalId.Count ? NationalId[i] : "N/A")}," +
+                                      $"{balances[i]}," +
+                                      $"{loans[i]}," +
+                                      $"{Passwords[i]}," +
+                                      $"\"{transactions[i]}\"," +
+                                      $"\"{transactionsLoan[i]}\"";
+
+                        writer.WriteLine(line);
+                    }
+                }
+
+                Console.WriteLine($"All account data successfully exported to: {exportFilePath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error exporting accounts: {ex.Message}");
+            }
+
+            Console.WriteLine("Press any key to continue...");
+            Console.ReadLine();
+        }
+
         // Reviews
 
         // Submit Review
@@ -1532,25 +1974,48 @@ namespace MiniBankSystem
         // View Reviews
         static void ViewReviews()
         {
-            Console.Clear();
-            Console.WriteLine("=== Reviews ===");
-            Console.WriteLine("===================================");
-            // Check if there are any reviews
-            if (reviewsStack.Count == 0)
-            {
-                Console.WriteLine("No reviews available.");
-                return;
-            }
 
-            // Display each review with name in the stack
-            foreach (string review in reviewsStack) // loop through the reviews
+            Console.Clear();
+            Console.ForegroundColor = ConsoleColor.Cyan; //  // Set accent color as Cyan
+            Console.WriteLine("╔══════════════════════════════════╗");
+            Console.WriteLine("║            REVIEWS               ║");
+            Console.WriteLine("╚══════════════════════════════════╝");
+            Console.ResetColor();
+
+            if (reviewsStack.Count == 0) // if count = 0 ( no review )
             {
-                Console.WriteLine("------------------------------");
-                Console.WriteLine($"Review: {review}"); // Display the review
-                Console.WriteLine("------------------------------");
+                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                Console.WriteLine("\n  No reviews available.\n");
+                Console.ResetColor();
             }
-            Console.WriteLine("Press any key to continue...");
-            Console.ReadLine();
+            else
+            {
+                Console.WriteLine();
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine("┌──────────────────────────────┐");
+                Console.ResetColor();
+
+                bool alternate = false;
+                foreach (string review in reviewsStack)
+                {
+                    // Left border of row
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.Write("│ ");
+                    Console.ResetColor();
+
+                    Console.Write($"{review,-28}");
+
+                    // Right border of row
+                    Console.ForegroundColor = ConsoleColor.DarkGray;
+                    Console.WriteLine(" │");
+                    Console.ResetColor();
+
+                }
+
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.WriteLine("└──────────────────────────────┘");
+                Console.ResetColor();
+            }
         }
 
         // Save and Load Reviews in Files
@@ -1660,7 +2125,7 @@ namespace MiniBankSystem
             return newAccountNumber; // Return the generated account number
         }
 
-        // Find an account by account number
+        // Find an account by account number or by Name
         public static string FindAccount(int accountNumber)
         {
             // Check if the account number is valid
@@ -1677,8 +2142,113 @@ namespace MiniBankSystem
             }
         }
 
-        // Change Password
-        static void ChangePassowrd()
+        public static void SearchAccountByNameOrID()
+        {
+            Console.Clear();
+            Console.WriteLine("=== Search Account ===");
+            Console.Write("Enter Name or National ID to search: ");
+            string searchInput = Console.ReadLine();
+
+            bool found = false;
+            for (int i = 0; i < accountNames.Count; i++)
+            {
+                if (accountNames[i] == searchInput ||  NationalId[i] == searchInput)
+                {
+                    Console.WriteLine("===================================");
+                    Console.WriteLine($"Account Number: {accountNumbers[i]}");
+                    Console.WriteLine($"Account Name: {accountNames[i]}");
+                    Console.WriteLine($"National ID: {NationalId[i]}");
+                    Console.WriteLine($"Balance: {balances[i]}");
+                    Console.WriteLine($"Loan Amount: {loans[i]}");
+                    Console.WriteLine($"Transaction History: {transactions[i]}");
+                    Console.WriteLine($"Loan Transaction History: {transactionsLoan[i]}");
+                    Console.WriteLine("===================================");
+                    found = true;
+                }
+            }
+
+            if (!found)
+            {
+                Console.WriteLine("No account found with the provided name or national ID.");
+            }
+
+            Console.WriteLine("Press any key to continue...");
+            Console.ReadLine();
+
+        }
+
+        // Change Password and Pin
+        static void ChangePinAdmin()
+        {
+            Console.Clear();
+            Console.WriteLine("=== Change Admin Pin ===");
+            Console.WriteLine("Please enter your Admin Name and old Pin to change your New Pin.");
+            Console.WriteLine("===================================");
+            // Get user details
+            Console.Write("Enter Admin Name: ");
+            string name = Console.ReadLine();
+            if (name == null) // Check if the account number is valid
+            {
+                Console.WriteLine("Invalid name format.");
+                return;
+            }
+            Console.Write("Enter Old Pin: ");
+            string oldPin = Console.ReadLine();
+            if (PinCodeAdmins[Admins.IndexOf(name)] != oldPin) // Check if the old password is valid
+            {
+                Console.WriteLine("Incorrect password.");
+                return;
+            }
+
+            Console.Write("Enter New Password: ");
+            string newPin = Console.ReadLine(); // Get the new password
+            int index = Admins.IndexOf(name); // Get the index of the account number
+            if (index != -1)
+            {
+                PinCodeAdmins[index] = newPin; // Update the password
+                Console.WriteLine($"Pin changed successfully for Admin: {name}");
+            }
+            else
+            {
+                Console.WriteLine("Account not found.");
+            }
+        }
+        static void ChangePinCustomers()
+        {
+            Console.Clear();
+            Console.WriteLine("=== Change Customers Pin ===");
+            Console.WriteLine("Please enter your User Name and old Pin to change your New Pin.");
+            Console.WriteLine("===================================");
+            // Get user details
+            Console.Write("Enter User Name: ");
+            string name = Console.ReadLine();
+            if (name == null ) // Check if the account number is valid
+            {
+                Console.WriteLine("Invalid name format.");
+                return;
+            }
+            Console.Write("Enter Old Pin: ");
+            string oldPin = Console.ReadLine();
+            if (PinCodeCustomers[Customers.IndexOf(name)] != oldPin) // Check if the old password is valid
+            {
+                Console.WriteLine("Incorrect password.");
+                return;
+            }
+
+            Console.Write("Enter New Password: ");
+            string newPin = Console.ReadLine(); // Get the new password
+            int index = Customers.IndexOf(name); // Get the index of the account number
+            if (index != -1)
+            {
+                PinCodeCustomers[index] = newPin; // Update the password
+                Console.WriteLine($"Pin changed successfully for name: {name}");
+            }
+            else
+            {
+                Console.WriteLine("Account not found.");
+            }
+        }
+        public static void ChangePassowrd()
         {
             Console.Clear();
             Console.WriteLine("=== Change Password ===");
@@ -1886,6 +2456,57 @@ namespace MiniBankSystem
             {
                 Console.WriteLine("Account Not Found.");
             }
+        }
+
+        // Shot Top 3 Richest
+        public static void ShowTopRichestCustomers()
+        {
+            Console.Clear();
+            Console.WriteLine("=== Top 3 Richest Customers ===");
+
+            // Prepare list of indices
+            List<int> BalanceTemp = new List<int>();
+            for (int i = 0; i < balances.Count; i++)
+            {
+                BalanceTemp.Add(i);
+            }
+
+            // sort by balance descending
+            for (int i = 0; i < BalanceTemp.Count - 1; i++)
+            {
+                for (int j = i + 1; j < BalanceTemp.Count; j++)
+                {
+                    if (balances[BalanceTemp[j]] > balances[BalanceTemp[i]])
+                    {
+                        // Swap Balance
+                        int temp = BalanceTemp[i];
+                        BalanceTemp[i] = BalanceTemp[j];
+                        BalanceTemp[j] = temp;
+                    }
+                }
+            }
+
+            // Display top 3 customers
+            int topCount = Math.Min(3, BalanceTemp.Count);
+            for (int i = 0; i < topCount; i++)
+            {
+                int index = BalanceTemp[i];
+                Console.WriteLine("===================================");
+                Console.WriteLine($"Rank #{i + 1}");
+                Console.WriteLine($"Account Number: {accountNumbers[index]}");
+                Console.WriteLine($"Name: {accountNames[index]}");
+                Console.WriteLine($"Balance: {balances[index]}");
+                Console.WriteLine($"Loan: {loans[index]}");
+                Console.WriteLine("===================================");
+            }
+
+            if (topCount == 0)
+            {
+                Console.WriteLine("No accounts available.");
+            }
+
+            Console.WriteLine("Press any key to continue...");
+            Console.ReadLine();
         }
     }
 }
