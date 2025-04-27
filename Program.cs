@@ -1289,6 +1289,7 @@ namespace MiniBankSystem
                 {
                     Console.WriteLine("Account not found.");
                 }
+                SaveAllData();
             }
             catch (Exception ex)
             {
@@ -1348,18 +1349,6 @@ namespace MiniBankSystem
                         return;
                     }
 
-                    // Check if the withdrawal amount is greater than the balance
-                    if (amount > balances[index] - MinimumBalance)
-                    {
-                        Console.WriteLine("Withdrawal amount exceeds balance.");
-                        return;
-                    }
-                    // Check if the withdrawal amount exceeds the balance
-                    if (amount > balances[index])
-                    {
-                        Console.WriteLine("Withdrawal amount exceeds balance.");
-                        return;
-                    }
                     // Update the balance and transaction history
                     if (balances[index] >= amount + MinimumBalance) // Check if there are sufficient funds for withdrawal
                     {
@@ -1376,6 +1365,7 @@ namespace MiniBankSystem
                 {
                     Console.WriteLine("Account not found.");
                 }
+                SaveAllData();
             }
             catch (Exception ex)
             {
@@ -1465,6 +1455,7 @@ namespace MiniBankSystem
                 {
                     Console.WriteLine("One or both accounts not found.");
                 }
+                SaveAllData();
             }
             catch (Exception ex)
             {
@@ -1587,12 +1578,6 @@ namespace MiniBankSystem
                         Console.WriteLine("Invalid loan amount.");
                         return;
                     }
-                    // Check if the loan amount exceeds the balance
-                    if (loanAmount > balances[index])
-                    {
-                        Console.WriteLine("Loan amount exceeds balance.");
-                        return;
-                    }
                     // Update the loan amount and transaction history
                     loans[index] += loanAmount; // Add the loan amount to the account
                     transactionsLoan[index] += $"Loan Applied: {loanAmount} | {DateTime.Now} "; // Add the loan application to the transaction history
@@ -1615,62 +1600,69 @@ namespace MiniBankSystem
         {
             try
             {
-                Console.Clear();
-                Console.WriteLine("=== Approve Loan Application ===");
-                Console.WriteLine("Please enter your account number and password to approve a loan application.");
-                Console.WriteLine("===================================");
-                // Get user details
-                Console.Write("Enter Account Number: ");
-                int accountNumber = int.Parse(Console.ReadLine());
-                if (!int.TryParse(Console.ReadLine(), out accountNumber)) // Check if the account number is valid
+                Console.Clear(); // Clear the console for a clean display
+                Console.WriteLine("=== Pending Loan Applications ===");
+
+                bool loansPending = false; // Flag to check if there are any loans to approve
+
+                // Loop through all accounts and find pending loans
+                for (int i = 0; i < loans.Count; i++)
                 {
-                    Console.WriteLine("Invalid account number format.");
+                    if (loans[i] > 0) // Loan amount > 0 means loan is pending
+                    {
+                        Console.WriteLine($"[{i}] Account Number: {accountNumbers[i]} | Name: {accountNames[i]} | Loan Requested: {loans[i]}");
+                        loansPending = true; // At least one loan is pending
+                    }
+                }
+
+                // If no loans are pending, exit the method
+                if (!loansPending)
+                {
+                    Console.WriteLine("No pending loan applications.");
+                    Console.ReadLine(); // Wait for user input
                     return;
                 }
-                // Check if the account number exists
-                CheckAccountExists(accountNumber);
 
-                Console.WriteLine($"Welcome, {accountNames[accountNumbers.IndexOf(accountNumber)]}.");
-                // Admin to approve the loan application Yes/No
-                Console.Write("Approve this loan application? (y/n): ");
-                string response = Console.ReadLine();
-                if (response.ToLower() == "y") // Check if the response is yes
+                // Ask admin to select which account to approve/reject
+                Console.Write("\nEnter the number of the account to process (or -1 to cancel): ");
+                if (!int.TryParse(Console.ReadLine(), out int selectedIndex) || selectedIndex < -1 || selectedIndex >= loans.Count)
                 {
-                    // Process loan application
-                    double loanAmount = loans[accountNumbers.IndexOf(accountNumber)]; // Get the loan amount
-                    int index = accountNumbers.IndexOf(accountNumber); // Get the index of the account number
-                    if (index != -1) // Check if the account number exists
-                    {
-                        // Check if the loan amount is valid
-                        if (loanAmount <= 0)
-                        {
-                            Console.WriteLine("Invalid loan amount.");
-                            return;
-                        }
-                        // Update the loan amount and transaction history
-                        loans[index] += loanAmount; // Add the loan amount to the account
-                        transactionsLoan[index] += $"Loan Approved: {loanAmount} | {DateTime.Now} "; // Add the loan approval to the transaction history
-                        Console.WriteLine($"Loan application approved! Loan Amount: {loanAmount}"); // Display the loan amount
-                    }
-                    else
-                    {
-                        Console.WriteLine("Account not found.");
-                    }
+                    Console.WriteLine("Invalid selection."); // Invalid input handling
+                    Console.ReadLine();
+                    return;
                 }
-                else
+
+                // If admin decides to cancel
+                if (selectedIndex == -1)
                 {
-                    loans[accountNumbers.IndexOf(accountNumber)] = 0; // Reset the loan amount
-                                                                      // empty transaction history
-                    transactionsLoan[accountNumbers.IndexOf(accountNumber)] = ""; // Reset the transaction history
-                    transactionsLoan[accountNumbers.IndexOf(accountNumber)] += $"Loan Rejected | {DateTime.Now} "; // Add the loan rejection to the transaction history
-                    Console.WriteLine($"Loan application rejected! Loan Amount: {loans[accountNumbers.IndexOf(accountNumber)]}"); // Display the loan amount
+                    Console.WriteLine("Operation cancelled.");
+                    return;
                 }
+
+                // Ask admin to approve or reject the selected loan
+                Console.Write($"Approve loan for {accountNames[selectedIndex]} (y/n)? ");
+                string approve = Console.ReadLine().ToLower();
+
+                if (approve == "y") // If admin approves the loan
+                {
+                    transactionsLoan[selectedIndex] += $"Loan Approved: {loans[selectedIndex]} | {DateTime.Now}\n"; // Add approval record
+                    Console.WriteLine("Loan approved successfully!");
+                }
+                else // If admin rejects the loan
+                {
+                    transactionsLoan[selectedIndex] += "Loan Rejected | " + DateTime.Now + "\n"; // Add rejection record
+                    loans[selectedIndex] = 0; // Reset loan amount to 0
+                    Console.WriteLine("Loan rejected.");
+                }
+
+                SaveAllData(); // Save updated data to file
+                Console.WriteLine("Press any key to continue...");
+                Console.ReadLine();
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Error Due to: " + ex.Message);
+                Console.WriteLine("Error Due to: " + ex.Message); // Catch and display any unexpected errors
             }
-       
         }
 
         // Process Loan Payment
@@ -1705,6 +1697,7 @@ namespace MiniBankSystem
                         loans[index] -= paymentAmount; // Reduce the payment amount from the loan
                         transactionsLoan[index] += $"Loan Payment: {paymentAmount} | {DateTime.Now} "; // Add the loan payment to the transaction history
                         Console.WriteLine($"Payment successful! Remaining loan amount: {loans[index]}"); // Display the remaining loan amount
+                        
                     }
                     else
                     {
@@ -1715,6 +1708,7 @@ namespace MiniBankSystem
                 {
                     Console.WriteLine("Account not found.");
                 }
+                SaveAllData();
             }
             catch (Exception ex)
             {
@@ -1755,21 +1749,14 @@ namespace MiniBankSystem
                     Console.WriteLine(line);
                 }
                 // Save the report to a file
-                try
+                using (StreamWriter writer = new StreamWriter(ReportFilePath))
                 {
-                    using (StreamWriter writer = new StreamWriter(ReportFilePath))
-                    {
-                        foreach (var line in reportLines)
-                        {
-                            writer.WriteLine(line);
-                        }
-                    }
+                   foreach (var line in reportLines)
+                   {
+                      writer.WriteLine(line);
+                   }
+                }
                     Console.WriteLine("Report saved successfully.");
-                }
-                catch
-                {
-                    Console.WriteLine("Error saving report.");
-                }
             }
             catch (Exception ex)
             {
@@ -1850,7 +1837,7 @@ namespace MiniBankSystem
                         writer.WriteLine($"{accountNumbers[i]}|{accountName}|{nationalId}|{balance}|{loan}|{password}|{transaction}|{transactionLoan}");
                     }
                 }
-                Console.WriteLine("Accounts saved successfully.");
+               
             }
             catch (Exception ex)
             {
@@ -1902,7 +1889,6 @@ namespace MiniBankSystem
                         writer.WriteLine($"{Admins[i]}|{PinCodeAdmins[i]}");
                     }
                 }
-                  Console.WriteLine("Admin Accounts saved successfully.");
                                               
             }
             catch (Exception ex)
@@ -1951,7 +1937,6 @@ namespace MiniBankSystem
                        writer.WriteLine($"{Customers[i]}|{PinCodeCustomers[i]}");
                     }
                 }
-                    Console.WriteLine("Customers Accounts saved successfully.");
             }
             catch (Exception ex)
             {
@@ -2002,14 +1987,8 @@ namespace MiniBankSystem
                         {
                             writer.WriteLine(request); // Save only properly formatted requests
                         }
-                        else
-                        {
-                            Console.WriteLine($"Skipped saving invalid request: {request}");
-                        }
                     }
                 }
-
-                Console.WriteLine("Account requests saved successfully.");
             }
             catch (Exception ex)
             {
@@ -2230,8 +2209,6 @@ namespace MiniBankSystem
                             writer.WriteLine(review); // Write the review to the file
                         }
                  }
-      
-                Console.WriteLine("Reviews saved successfully.");
 
             }
             catch (Exception ex)
