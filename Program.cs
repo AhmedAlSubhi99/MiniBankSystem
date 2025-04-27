@@ -911,6 +911,7 @@ namespace MiniBankSystem
 
         // Request New Account
         public static void RequestNewAccounts()
+
         {
             try
             {
@@ -1046,6 +1047,7 @@ namespace MiniBankSystem
                     // remove the selected request
                     requestsList.RemoveAt(selected - 1);
                     createAccountRequests = new Queue<string>(requestsList);
+                    SaveAllData();
                     Console.WriteLine("\nPress any key to continue...");
                     Console.ReadLine();
 
@@ -1088,6 +1090,7 @@ namespace MiniBankSystem
                 Passwords.Add(password);
                 transactions.Add(""); // Empty transaction history
                 Console.WriteLine($"Account created successfully! Your Account Number is: {newAccountNumber}");
+                SaveAllData();
             }
             catch (Exception ex)
             {
@@ -1149,6 +1152,7 @@ namespace MiniBankSystem
                 {
                     Console.WriteLine("Account not found.");
                 }
+                SaveAllData();
             }
             catch (Exception ex)
             {
@@ -1475,8 +1479,8 @@ namespace MiniBankSystem
                 Console.WriteLine("===================================");
                 // Get user details
                 Console.Write("Enter Account Number: ");
-                int accountNumber = int.Parse(Console.ReadLine());
-                if (!int.TryParse(Console.ReadLine(), out accountNumber)) // Check if the account number is valid
+                string input = Console.ReadLine();
+                if (!int.TryParse(input, out int accountNumber)) // Check if the account number is valid
                 {
                     Console.WriteLine("Invalid account number format.");
                     return;
@@ -1511,8 +1515,8 @@ namespace MiniBankSystem
                 Console.WriteLine("===================================");
                 // Get user details
                 Console.Write("Enter Account Number: ");
-                int accountNumber = int.Parse(Console.ReadLine());
-                if (!int.TryParse(Console.ReadLine(), out accountNumber)) // Check if the account number is valid
+                string input = Console.ReadLine();
+                if (!int.TryParse(input, out int accountNumber)) // Check if the account number is valid
                 {
                     Console.WriteLine("Invalid account number format.");
                     return;
@@ -1530,6 +1534,7 @@ namespace MiniBankSystem
                 Console.WriteLine($"Welcome, {accountNames[accountNumbers.IndexOf(accountNumber)]}.");
                 Console.WriteLine($"Transaction History: {transactions[accountNumbers.IndexOf(accountNumber)]}");
                 Console.WriteLine($"Loan Transaction History: {transactionsLoan[accountNumbers.IndexOf(accountNumber)]}");
+                SaveAllData();
             }
             catch (Exception ex)
             {
@@ -2038,13 +2043,13 @@ namespace MiniBankSystem
                         string transactionHistory = transactions[i]?.Replace(",", ";");     // Replace commas inside history
                         string loanTransactionHistory = transactionsLoan[i]?.Replace(",", ";");
 
-                        string line = $"{accountNumbers[i]}," +
-                                     $"\"{accountNames[i]}\"," +
-                                     $"\"{NationalId[i]}\"," +
-                                     $"{balances[i]}," +
-                                     $"{loans[i]}," +
-                                     $"\"{Passwords[i]}\"," +
-                                     $"\"{transactions[i]}\"," +
+                        string line = $"{accountNumbers[i]}," + "" +
+                                     $"\"{accountNames[i]}\"," + "" +
+                                     $"\"{NationalId[i]}\"," + "" +
+                                     $"{balances[i]}," + "" +
+                                     $"{loans[i]}," + "" +
+                                     $"\"{Passwords[i]}\"," + "" +
+                                     $"\"{transactions[i]}\"," + "" +
                                      $"\"{transactionsLoan[i]}\"";
 
                         writer.WriteLine(line);
@@ -2455,8 +2460,8 @@ namespace MiniBankSystem
                 Console.WriteLine("===================================");
                 // Get user details
                 Console.Write("Enter Account Number: ");
-                int accountNumber = int.Parse(Console.ReadLine());
-                if (!int.TryParse(Console.ReadLine(), out accountNumber)) // Check if the account number is valid
+                string input = Console.ReadLine();
+                if (!int.TryParse(input, out int accountNumber)) // Check if the account number is valid
                 {
                     Console.WriteLine("Invalid account number format.");
                     return;
@@ -2503,8 +2508,8 @@ namespace MiniBankSystem
                 Console.WriteLine("===================================");
                 // Get user details
                 Console.Write("Enter Account Number: ");
-                int accountNumber = int.Parse(Console.ReadLine());
-                if (!int.TryParse(Console.ReadLine(), out accountNumber))
+                string input = Console.ReadLine();
+                if (!int.TryParse(input, out int accountNumber))
                 {
                     Console.WriteLine("Invalid account number format.");
                     return;
@@ -2555,8 +2560,8 @@ namespace MiniBankSystem
                 Console.WriteLine("===================================");
                 // Get user details
                 Console.Write("Enter Account Number: ");
-                int accountNumber = int.Parse(Console.ReadLine());
-                if (!int.TryParse(Console.ReadLine(), out accountNumber)) // Check if the account number is valid
+                string input = Console.ReadLine();
+                if (!int.TryParse(input, out int accountNumber)) // Check if the account number is valid
                 {
                     Console.WriteLine("Invalid account number format.");
                     return;
@@ -2637,8 +2642,8 @@ namespace MiniBankSystem
                 Console.WriteLine("===================================");
                 // Get user details
                 Console.Write("Enter Account Number: ");
-                int accountNumber = int.Parse(Console.ReadLine());
-                if (!int.TryParse(Console.ReadLine(), out accountNumber)) // Check if the account number is valid
+                string input = Console.ReadLine();
+                if (!int.TryParse(input, out int accountNumber)) // Check if the account number is valid
                 {
                     Console.WriteLine("Invalid account number format.");
                     return;
