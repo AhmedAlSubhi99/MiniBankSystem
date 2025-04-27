@@ -355,7 +355,7 @@ namespace MiniBankSystem
                 string pin = Console.ReadLine();
                 PinCodeAdmins.Add(pin);
                 SaveAllData();
-                Console.WriteLine($"Customer Account created successfully! Your Name ID is: {admin}");
+                Console.WriteLine($"Admin Account created successfully! Your Name ID is: {admin}");
                 Console.WriteLine("Press any key to continue...");
                 Console.ReadLine();
             }
@@ -935,7 +935,8 @@ namespace MiniBankSystem
                 // Check if the National ID already exists in pending requests
                 foreach (string request in createAccountRequests)
                 {
-                    string[] parts = request.Split("||");
+                    string[] parts = request.Split("|");
+
                     if (parts.Length > 1 && parts[1].Trim() == nationalID)
                     {
                         Console.WriteLine("A request with this National ID is already pending.");
@@ -944,7 +945,7 @@ namespace MiniBankSystem
                 }
 
                 // If passed both checks, enqueue the request
-                string newRequest = $"{name}||{nationalID}";
+                string newRequest = $"{name}|{nationalID}";
                 createAccountRequests.Enqueue(newRequest);
                 Console.WriteLine("Your request has been submitted successfully.");
                 SaveAllData();
@@ -983,11 +984,12 @@ namespace MiniBankSystem
 
                     // Display all pending requests with numbers
                     int requestNumber = 1;
+                    List<string> requestsList = createAccountRequests.ToList();
 
                     foreach (string request in createAccountRequests)
                     {
-                        string[] parts = request.Split("||");
-                        Console.WriteLine($"║ {requestNumber}. {parts[0],-20} (ID: {parts[1]})");
+                        string[] parts = request.Split("|");
+                        Console.WriteLine($"║ {requestNumber}. {parts[0]} (ID: {parts[1]})              ║");
                         requestNumber++;
                     }
 
@@ -1001,13 +1003,13 @@ namespace MiniBankSystem
                     if (selected < 1 || selected > createAccountRequests.Count) continue;
                     // Process selected request
                     string selectRequest = createAccountRequests.ElementAt(selected - 1);
-                    string[] selectedParts = selectRequest.Split("||");
+                    string[] selectedParts = selectRequest.Split("|");
                     string name = selectedParts[0];
                     string nationalID = selectedParts[1];
 
                     Console.Clear();
                     Console.WriteLine($"╔════════════════════════════════════════════╗");
-                    Console.WriteLine($"║ PROCESSING: {name,-20} (ID: {nationalID})  ║");
+                    Console.WriteLine($"║ PROCESSING: {name} (ID: {nationalID})      ║");
                     Console.WriteLine($"╚════════════════════════════════════════════╝");
 
                     Console.Write("Approve this request? (y/n): ");
@@ -1020,8 +1022,10 @@ namespace MiniBankSystem
                         accountNumbers.Add(newAccountNumber); // Add account number to list
                         accountNames.Add(name); // add name to list
                         NationalId.Add(nationalID);
-                        balances.Add(0.0); // init balance
+                        balances.Add(MinimumBalance); // init balance
                         loans.Add(0.0); // init loan
+                        transactions.Add("");     
+                        transactionsLoan.Add(""); 
 
                         Console.Write("Enter a password: ");
                         string password = Console.ReadLine();
@@ -1039,6 +1043,9 @@ namespace MiniBankSystem
                         Console.WriteLine($"Request for {name} has been rejected.");
                     }
 
+                    // remove the selected request
+                    requestsList.RemoveAt(selected - 1);
+                    createAccountRequests = new Queue<string>(requestsList);
                     Console.WriteLine("\nPress any key to continue...");
                     Console.ReadLine();
 
@@ -1070,9 +1077,12 @@ namespace MiniBankSystem
                 int newAccountNumber = GenerateAccountNumber(); // Generate a unique account number
                 accountNumbers.Add(newAccountNumber); // Add the new account number to the list
                 accountNames.Add(name); // Add the account name to the list
-                balances.Add(0.0); // Initial balance
+                balances.Add(MinimumBalance); // Initial balance
                 loans.Add(0.0); // Initial loan amount
-                                // Choose password
+                transactions.Add("");
+                transactionsLoan.Add("");
+
+                // Choose password
                 Console.Write("Enter a password: ");
                 string password = Console.ReadLine();
                 Passwords.Add(password);
@@ -1828,7 +1838,16 @@ namespace MiniBankSystem
                 {
                     for (int i = 0; i < accountNumbers.Count; i++)
                     {
-                        writer.WriteLine($"{accountNumbers[i]},{accountNames[i]},{NationalId[i]},{balances[i]},{loans[i]},{Passwords[i]},{transactions[i]},{transactionsLoan[i]}");
+                        // Safely get each item or default if missing
+                        string accountName = (i < accountNames.Count) ? accountNames[i] : "Unknown";
+                        string nationalId = (i < NationalId.Count) ? NationalId[i] : "Unknown";
+                        double balance = (i < balances.Count) ? balances[i] : 0.0;
+                        double loan = (i < loans.Count) ? loans[i] : 0.0;
+                        string password = (i < Passwords.Count) ? Passwords[i] : "password123";
+                        string transaction = (i < transactions.Count) ? transactions[i] : "";
+                        string transactionLoan = (i < transactionsLoan.Count) ? transactionsLoan[i] : "";
+
+                        writer.WriteLine($"{accountNumbers[i]}|{accountName}|{nationalId}|{balance}|{loan}|{password}|{transaction}|{transactionLoan}");
                     }
                 }
                 Console.WriteLine("Accounts saved successfully.");
@@ -1847,7 +1866,7 @@ namespace MiniBankSystem
                 {
                     foreach (var line in File.ReadAllLines(AccountsFilePath))
                     {
-                        var parts = line.Split(',');
+                        var parts = line.Split('|');
                         if (parts.Length >= 7)
                         {
                             accountNumbers.Add(int.Parse(parts[0]));
@@ -1880,7 +1899,7 @@ namespace MiniBankSystem
                     for (int i = 0; i < Admins.Count; i++)
                     {
                         // Write account details to the file
-                        writer.WriteLine($"{Admins[i]},{PinCodeAdmins[i]}");
+                        writer.WriteLine($"{Admins[i]}|{PinCodeAdmins[i]}");
                     }
                 }
                   Console.WriteLine("Admin Accounts saved successfully.");
@@ -1901,7 +1920,7 @@ namespace MiniBankSystem
                 {
                     foreach (var line in File.ReadAllLines(AdminFilePath))
                     {
-                        var parts = line.Split(',');
+                        var parts = line.Split('|');
                         if (parts.Length >= 2)
                         {
                             Admins.Add(parts[0]);
@@ -1929,7 +1948,7 @@ namespace MiniBankSystem
                     for (int i = 0; i < Customers.Count; i++)
                     {
                        // Write account details to the file
-                       writer.WriteLine($"{Customers[i]},{PinCodeCustomers[i]}");
+                       writer.WriteLine($"{Customers[i]}|{PinCodeCustomers[i]}");
                     }
                 }
                     Console.WriteLine("Customers Accounts saved successfully.");
@@ -1949,7 +1968,7 @@ namespace MiniBankSystem
                 {
                     foreach (var line in File.ReadAllLines(CustomersFilePath))
                     {
-                        var parts = line.Split(',');
+                        var parts = line.Split('|');
                         if (parts.Length >= 2)
                         {
                             Customers.Add(parts[0]);
@@ -1969,18 +1988,28 @@ namespace MiniBankSystem
         public static void SaveRequeststoFile()
         {
             try
-            { 
-
+            {
                 using (StreamWriter writer = new StreamWriter(RequestFilePath))
                 {
                     foreach (var request in createAccountRequests)
                     {
-                        writer.WriteLine(request);
+                        if (string.IsNullOrWhiteSpace(request))
+                            continue; // Skip empty requests
+
+                        string[] parts = request.Split(new string[] { "||" }, StringSplitOptions.None);
+
+                        if (parts.Length >= 2)
+                        {
+                            writer.WriteLine(request); // Save only properly formatted requests
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Skipped saving invalid request: {request}");
+                        }
                     }
                 }
 
                 Console.WriteLine("Account requests saved successfully.");
-
             }
             catch (Exception ex)
             {
@@ -2061,7 +2090,7 @@ namespace MiniBankSystem
                 {
                     for (int i = 0; i < reportLines.Count; i++)
                     {
-                        writer.WriteLine($"{reportLines[i]},{reportMonth[i]}");
+                        writer.WriteLine($"{reportLines[i]}|{reportMonth[i]}");
                     }
                 }
             }
@@ -2079,7 +2108,7 @@ namespace MiniBankSystem
                 {
                     foreach (var line in File.ReadAllLines(ReportFilePath))
                     {
-                        var parts = line.Split(',');
+                        var parts = line.Split('|');
                         if (parts.Length >= 2)
                         {
                             reportLines.Add(parts[0]);
@@ -2193,13 +2222,6 @@ namespace MiniBankSystem
         {
             try
             {
-                // Save reviews to the file
-                if (reviewsStack.Count == 0) // Check if there are any reviews
-                {
-                    Console.WriteLine("No reviews to save.");
-                    return;
-                }
-
                 // Write the file line by line
                  using (StreamWriter writer = new StreamWriter(ReviewsFilePath)) // Open the file for writing                
                  {
@@ -2223,13 +2245,7 @@ namespace MiniBankSystem
         {
             try
             {
-                // Check if the file exists
-                if (!File.Exists(ReviewsFilePath))
-                {
-                    return;
-                }
                 // Read the file line by line
-
                 using (StreamReader reader = new StreamReader(ReviewsFilePath)) // Open the file for reading
                 {
                    string line; // Declare a variable to hold each line
@@ -2407,6 +2423,7 @@ namespace MiniBankSystem
             }
       
         }
+
         public static void ChangePinCustomers()
         {
             try
@@ -2450,6 +2467,7 @@ namespace MiniBankSystem
             }
        
         }
+
         public static void ChangePassowrd()
         {
             try
@@ -2759,7 +2777,7 @@ namespace MiniBankSystem
        
         }
 
-
+        // Save and Load All Data
         static void LoadAllData()
         {
             try
