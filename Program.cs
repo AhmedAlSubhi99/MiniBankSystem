@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Principal;
+using System.Text;
+using System.Threading.Tasks;
+
 
 namespace MiniBankSystem
 {
@@ -33,9 +36,16 @@ namespace MiniBankSystem
         static List<string> transactionsLoan = new List<string>(); // List to store loan transaction history
         static List<string> reportLines = new List<string>(); // List to store daily report lines
         static List<string> reportMonth = new List<string>(); // List to store monthly report lines
+        static List<string> phoneNumbers = new List<string>();   // Store phone number
+        static List<string> addresses = new List<string>();      // Store address
+        static List<int> ratings = new List<int>(); // Store ratings feedback
+        static List<bool> isAccountLocked = new List<bool>();     // Track locked status
+        static List<int> failedLoginAttempts = new List<int>();   // Track failed login counts
         // Queue and Stack for account requests and reviews
         static Queue<string> createAccountRequests = new Queue<string>(); // Queue to store account requests
         static Stack<string> reviewsStack = new Stack<string>(); // Stack to store reviews
+        static Queue<string> appointments = new Queue<string>(); // Queue to store appointments
+
 
 
         // Account number generator
@@ -85,7 +95,7 @@ namespace MiniBankSystem
                             break;
                         case "4":
                             Console.WriteLine("Good Bye !!!! ");
-                            Environment.Exit(0);
+                            Environment.Exit(0); // Exit the application
                             break;
                         default:
                             Console.WriteLine("Invalid option!");
@@ -135,6 +145,14 @@ namespace MiniBankSystem
                 transactions.Clear();
                 createAccountRequests.Clear();
                 reviewsStack.Clear();
+                reportLines.Clear();
+                reportMonth.Clear();
+                phoneNumbers.Clear();
+                addresses.Clear();
+                ratings.Clear();
+                isAccountLocked.Clear();
+                failedLoginAttempts.Clear();
+                appointments.Clear();
 
                 // Reset account number tracking
                 lastAccountNumber = 0;
@@ -170,6 +188,44 @@ namespace MiniBankSystem
             try
             {
                 Console.WriteLine("Shutting down the Mini Bank System...");
+                // Ask user if they want to create a backup
+                Console.Write("Would you like to save a backup of all data? (y/n): ");
+                string input = Console.ReadLine().ToLower();
+
+                // If user confirms, create a backup file
+                if (input == "y")
+                {
+                    string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmm"); // Timestamp for backup file
+
+                    string dir = "Backups"; // Directory to store backups
+                    if (!Directory.Exists(dir)) // Check if the directory exists
+                        Directory.CreateDirectory(dir); // Create the directory if it doesn't exist
+
+                    string backupFileName = Path.Combine(dir, $"Backup_{timestamp}.txt"); // Create backup file name with timestamp
+
+                    // Write backup data to the file
+                    using (StreamWriter writer = new StreamWriter(backupFileName))
+                    {
+                        writer.WriteLine("Backup File Created: " + DateTime.Now);
+                        writer.WriteLine("======================================");
+                        for (int i = 0; i < accountNumbers.Count; i++) // Loop through all accounts
+                        {
+                            // Write account details to the backup file
+                            writer.WriteLine($"Account Number: {accountNumbers[i]}");
+                            writer.WriteLine($"Name: {accountNames[i]}");
+                            writer.WriteLine($"National ID: {NationalId[i]}");
+                            writer.WriteLine($"Balance: {balances[i]}");
+                            writer.WriteLine($"Loan: {loans[i]}");
+                            writer.WriteLine($"Phone: {phoneNumbers[i]}");
+                            writer.WriteLine($"Address: {addresses[i]}");
+                            writer.WriteLine($"Transactions: {transactions[i]}");
+                            writer.WriteLine($"Loan Transactions: {transactionsLoan[i]}");
+                            writer.WriteLine("--------------------------------------");
+                        }
+                    }
+
+                    Console.WriteLine($"Backup saved to file: {backupFileName}");
+                }
 
                 // Save data before exiting
                 SaveAllData();
@@ -244,7 +300,7 @@ namespace MiniBankSystem
                             AdminLogin(); // Admin login
                             break;
                         case "3":
-                            Console.WriteLine("Choose you are: 1. Admin || 2. Customer ");
+                            Console.WriteLine("Choose you are:\n 1. Admin || 2. Customer ");
                             string Check = Console.ReadLine();
 
                             if (Check == "1")
@@ -261,8 +317,7 @@ namespace MiniBankSystem
                             }
                             break;
                         case "4":
-                            SaveAllData();
-                            GO = false; // Exit the loop
+                            ShutdownBankSystem(); // Runs backup prompt and exits the app
                             break;
                         case "5":
                             DisplaySystemUtilitiesMenu();
@@ -309,9 +364,9 @@ namespace MiniBankSystem
                 Customers.Add(name); // Add the account name to the list
 
                 // Choose password
-                Console.Write("Enter a New Pin: ");
-                string pin = Console.ReadLine();
-                PinCodeCustomers.Add(pin);
+                string pin = ReadPasswordMasked(); // read password without showing input
+                string hashed = HashPassword(pin); // hash the password
+                PinCodeCustomers.Add(hashed); // Add the hashed password to the list
                 SaveAllData();
                 Console.WriteLine($"Customer Account created successfully! Your Name ID is: {name}");
                 Console.WriteLine("Press any key to continue...");
@@ -351,9 +406,9 @@ namespace MiniBankSystem
                 Admins.Add(admin); // Add the account name to the list
 
                 // Choose password
-                Console.Write("Enter a New Pin: ");
-                string pin = Console.ReadLine();
-                PinCodeAdmins.Add(pin);
+                string pin = ReadPasswordMasked(); // Read password without showing input
+                string hashed = HashPassword(pin); // Hash the password
+                PinCodeAdmins.Add(hashed);
                 SaveAllData();
                 Console.WriteLine($"Admin Account created successfully! Your Name ID is: {admin}");
                 Console.WriteLine("Press any key to continue...");
@@ -376,19 +431,46 @@ namespace MiniBankSystem
                 Console.WriteLine("Please enter your account number and password to log in.");
                 Console.WriteLine("===================================");
                 // Get user Info
-                Console.Write("Enter User ID: ");
-                string name = Console.ReadLine();
-                Console.Write("Enter Pin: ");
-                string pin = Console.ReadLine();
-                // Check if the User ID and Pin are valid
-                if (Customers.Contains(name) && PinCodeCustomers.Contains(pin))
+                Console.Write("Enter National ID: ");
+                string nationalId = Console.ReadLine();
+
+                Console.Write("Enter Password: ");
+                string password = ReadPasswordMasked(); // read password without showing input
+                string hashed = HashPassword(password); // Hash the password
+
+                int index = NationalId.IndexOf(nationalId); // Find the index of the national ID in the list
+
+                if (index != -1) // Check if the national ID exists
                 {
-                    DisplayCustomerMenu(); // Display the customer menu
+                    if (isAccountLocked[index]) // Check if the account is locked
+                    {
+                        Console.WriteLine(" Your account is locked due to 3 failed login attempts. Contact admin to unlock.");
+                        return;
+                    }
+
+                    if (Passwords[index] == hashed) // Check if the password matches
+                    {
+                        failedLoginAttempts[index] = 0;  // reset on success
+                        DisplayCustomerMenu();           // login success
+                    }
+                    else
+                    {
+                        failedLoginAttempts[index]++; // Increment failed login attempts
+                        Console.WriteLine("Incorrect password.");
+
+                        if (failedLoginAttempts[index] >= 3) // Check if failed attempts reached 3
+                        {
+                            isAccountLocked[index] = true; // Lock the account
+                            Console.WriteLine(" Your account has been locked after 3 failed attempts.");
+                        }
+                    }
                 }
                 else
                 {
-                    Console.WriteLine("Invalid Account!");
+                    Console.WriteLine("National ID not found.");
                 }
+
+
             }
             catch (Exception ex)
             {
@@ -424,14 +506,19 @@ namespace MiniBankSystem
                     Console.WriteLine("    ║  [8]   Request New Account           ║");
                     Console.WriteLine("    ║  [9]   Change Password               ║");
                     Console.WriteLine("    ║  [10]   Account Statement            ║");
-                    Console.WriteLine("    ║  [11]   Currency Converter           ║");
-                    Console.WriteLine("    ║  [12]   Change Pin                   ║");
-                    Console.WriteLine("    ║  [13]   Logout                       ║");
+                    Console.WriteLine("    ║  [11]   Monthly Statement            ║");
+                    Console.WriteLine("    ║  [12]   Currency Converter           ║");
+                    Console.WriteLine("    ║  [13]   Update Phone / Address       ║");
+                    Console.WriteLine("    ║  [14]   Book Appointment             ║");
+                    Console.WriteLine("    ║  [15]   View My Appointments         ║");
+                    Console.WriteLine("    ║  [16]   Currency Deposit             ║");
+                    Console.WriteLine("    ║  [17]   Change Pin                   ║");
+                    Console.WriteLine("    ║  [18]   Logout                       ║");
                     Console.WriteLine("    ║                                      ║");
                     Console.WriteLine("    ╚══════════════════════════════════════╝");
 
                     Console.ResetColor();
-                    Console.Write("\n    Select an option (0-13): ");
+                    Console.Write("\n    Select an option (0-18): ");
                     string choice = Console.ReadLine();
                     switch (choice)
                     {
@@ -469,12 +556,27 @@ namespace MiniBankSystem
                             GenerateAccountStatement(); // Generate account statement
                             break;
                         case "11":
-                            CurrencyConverter(); // Currency converter 
+                            GenerateMonthlyStatementByUser(); // New method
                             break;
                         case "12":
-                            ChangePinCustomers();
+                            CurrencyConverter(); // Currency converter 
                             break;
                         case "13":
+                            UpdateAccountInfo(); // Update phone number or address
+                            break;
+                        case "14":
+                            BookAppointment(); // Book an appointment
+                            break;
+                        case "15":
+                            ViewMyAppointment(); // View my appointments
+                            break;
+                        case "16":
+                            DepositWithCurrencyConversion(); // Deposit with currency conversion
+                            break;
+                        case "17":
+                            ChangePinCustomers(); // Change Pin
+                            break;
+                        case "18":
                             Console.WriteLine("Login Out .........");
                             return;
                         default:
@@ -504,16 +606,37 @@ namespace MiniBankSystem
                 // Get admin info
                 Console.Write("Enter Admin Username: ");
                 string Admin = Console.ReadLine();
-                Console.Write("Enter Admin Pin: ");
-                string AdminPin = Console.ReadLine();
-                // Check if the Addmin Name and Pin are valid
-                if (Admins.Contains(Admin) && PinCodeAdmins.Contains(AdminPin))
+                if (Admin == "admin")
                 {
-                    DisplayAdminMenu(); // Display the admin menu
+                    Console.WriteLine("The ID 'admin' is reserved. Please choose another.");
+                    return;
+                }
+
+                Console.Write("Enter Admin Pin: ");
+                string Adminpin = ReadPasswordMasked(); // read password without showing input
+                string AdminhashedPin = HashPassword(Adminpin); // Hash the password
+
+                // Check if the Addmin Name and Pin are valid
+                if (Admins.Count == 0 || PinCodeAdmins.Count == 0)
+                {
+                    Console.WriteLine("No Admins found. Please create an admin account first.");
+                    return;
+                }
+                int index = Admins.IndexOf(Admin); // Find the index of the admin in the list
+                if (index != -1 && PinCodeAdmins[index] == AdminhashedPin) // Check if the admin exists and the pin matches
+                {
+                    Console.WriteLine("Admin login successful.");
+                    Console.WriteLine("Welcome, " + Admin + "!");
+                    DisplayAdminMenu(); // Access granted
+                }
+                else if (Admin == "admin" && Adminpin == "Admin@123") // Check for super admin
+                {
+                    Console.WriteLine("Super Admin Access Granted.");
+                    DisplayAdminMenu();
                 }
                 else
                 {
-                    Console.WriteLine("Invalid Admin Info!");
+                    Console.WriteLine("Invalid Admin credentials.");
                 }
             }
             catch (Exception ex)
@@ -551,12 +674,20 @@ namespace MiniBankSystem
                     Console.WriteLine("    ║  [9]   Find Account                  ║");
                     Console.WriteLine("    ║  [10]   Change Pin                   ║");
                     Console.WriteLine("    ║  [11]   Show Top Three Richest       ║");
-                    Console.WriteLine("    ║  [12]   Logout                       ║");
+                    Console.WriteLine("    ║  [12]   View Average Rating          ║");
+                    Console.WriteLine("    ║  [13]   View All Appointments        ║");
+                    Console.WriteLine("    ║  [14]   View Appointment by Account  ║");
+                    Console.WriteLine("    ║  [15]   Currency Converter           ║");
+                    Console.WriteLine("    ║  [16]   Unlock Locked Account        ║");
+                    Console.WriteLine("    ║  [17]   View Locked Accounts         ║");
+                    Console.WriteLine("    ║  [18]   View Accounts with Loans     ║");
+                    Console.WriteLine("    ║  [19]   View Low Balance Accounts    ║");
+                    Console.WriteLine("    ║  [20]   Logout                       ║");
                     Console.WriteLine("    ║                                      ║");
                     Console.WriteLine("    ╚══════════════════════════════════════╝");
 
                     Console.ResetColor();
-                    Console.Write("\n    Select an option (1-12): ");
+                    Console.Write("\n    Select an option (1-20): ");
                     string choice = Console.ReadLine();
 
                     switch (choice)
@@ -610,9 +741,33 @@ namespace MiniBankSystem
                             ChangePinAdmin(); // Change Pin
                             break;
                         case "11":
-                            ShowTopRichestCustomers();
+                            ShowTopRichestCustomers(); // Show top three richest customers
                             break;
                         case "12":
+                            ViewAverageRating(); // View average rating
+                            break;
+                        case "13":
+                            ViewAppointments(); // Show all formatted appointments
+                            break;
+                        case "14":
+                            ViewAppointmentByAccount(); // View appointment by account
+                            break;
+                        case "15":
+                            CurrencyConverter(); // Currency converter
+                            break;
+                        case "16":
+                            UnlockAccountByAdmin(); // Unlock locked account
+                            break;
+                        case "17":
+                            ShowLockedAccounts(); // Show locked accounts
+                            break;
+                        case "18":
+                            ShowAccountsWithActiveLoans(); // Show accounts with active loans
+                            break;
+                        case "19":
+                            ShowLowBalanceAccounts(); // Show accounts with low balance
+                            break;
+                        case "20":
                             Console.WriteLine("Logging out...");
                             return;
                         default:
@@ -628,6 +783,46 @@ namespace MiniBankSystem
                 Console.WriteLine("Error Due to: " + ex.Message);
             }
            
+        }
+
+        // Unlock Account by Admin
+        public static void UnlockAccountByAdmin()
+        {
+            try
+            {
+                Console.Clear();
+                Console.WriteLine("=== Unlock Locked Account ===");
+
+                Console.Write("Enter Account Number to unlock: ");
+                if (!int.TryParse(Console.ReadLine(), out int accountNumber)) // Check if input is a valid integer
+                {
+                    Console.WriteLine("Invalid input.");
+                    return;
+                }
+
+                int index = accountNumbers.IndexOf(accountNumber); // Find the index of the account number in the list
+                if (index == -1) // Check if the account number exists
+                {
+                    Console.WriteLine("Account not found.");
+                    return;
+                }
+
+                if (!isAccountLocked[index]) // Check if the account is already unlocked
+                {
+                    Console.WriteLine("This account is not currently locked.");
+                    return;
+                }
+
+                isAccountLocked[index] = false; // Unlock the account
+                failedLoginAttempts[index] = 0; // Reset failed login attempts
+
+                Console.WriteLine(" Account unlocked successfully.");
+                SaveAllData();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error: " + ex.Message);
+            }
         }
 
         // Sub-menus for Admin
@@ -841,12 +1036,13 @@ namespace MiniBankSystem
                     Console.WriteLine("    ║                                      ║");
                     Console.WriteLine("    ║  [1]   Generate Daily Report         ║");
                     Console.WriteLine("    ║  [2]   Generate Monthly Statement    ║");
-                    Console.WriteLine("    ║  [3]   Back to Admin Menu            ║");
+                    Console.WriteLine("    ║  [3]   Generate Account Statement    ║");
+                    Console.WriteLine("    ║  [4]   Back to Admin Menu            ║");
                     Console.WriteLine("    ║                                      ║");
                     Console.WriteLine("    ╚══════════════════════════════════════╝");
 
                     Console.ResetColor();
-                    Console.Write("\n    Select report type (1-3): ");
+                    Console.Write("\n    Select report type (1-4): ");
                     string choice = Console.ReadLine();
 
                     switch (choice)
@@ -858,6 +1054,9 @@ namespace MiniBankSystem
                             GenerateMonthlyStatement(); // Generate monthly statement
                             break;
                         case "3":
+                            GenerateAccountStatement(); // Generate account statement
+                            break;
+                        case "4":
                             Console.WriteLine("Returning to Admin Menu...");
                             return;
                         default:
@@ -1026,11 +1225,15 @@ namespace MiniBankSystem
                         balances.Add(MinimumBalance); // init balance
                         loans.Add(0.0); // init loan
                         transactions.Add("");     
-                        transactionsLoan.Add(""); 
+                        transactionsLoan.Add("");
+                        // Login protection
+                        isAccountLocked.Add(false); // account is not locked
+                        failedLoginAttempts.Add(0); // reset failed login attempts
 
                         Console.Write("Enter a password: ");
-                        string password = Console.ReadLine();
-                        Passwords.Add(password); // Set password
+                        string password = ReadPasswordMasked();
+                        string hashedPassword = HashPassword(password);
+                        Passwords.Add(hashedPassword); // Set password
                         transactions.Add(""); // reset transactions
 
                         Console.WriteLine($"\nAccount created successfully!");
@@ -1083,12 +1286,27 @@ namespace MiniBankSystem
                 loans.Add(0.0); // Initial loan amount
                 transactions.Add("");
                 transactionsLoan.Add("");
+                // Add login protection 
+                isAccountLocked.Add(false); // Account is not locked
+                failedLoginAttempts.Add(0); // Reset failed login attempts
+
+                Console.Write("Enter Phone Number: ");
+                string phone = Console.ReadLine();
+                phoneNumbers.Add(phone);
+
+                Console.Write("Enter Address: ");
+                string address = Console.ReadLine();
+                addresses.Add(address);
+
 
                 // Choose password
                 Console.Write("Enter a password: ");
-                string password = Console.ReadLine();
-                Passwords.Add(password);
+                string password = ReadPasswordMasked();
+                string hashedPassword = HashPassword(password);
+                Passwords.Add(hashedPassword);
                 transactions.Add(""); // Empty transaction history
+                transactionsLoan.Add("");
+
                 Console.WriteLine($"Account created successfully! Your Account Number is: {newAccountNumber}");
                 SaveAllData();
             }
@@ -1097,6 +1315,48 @@ namespace MiniBankSystem
                 Console.WriteLine("Error Due to: " + ex.Message);
             }
            
+        }
+
+        // Update Account Info
+        public static void UpdateAccountInfo()
+        {
+            Console.Clear();
+            Console.WriteLine("=== Update Account Information ===");
+            Console.Write("Enter Account Number: ");
+            string input = Console.ReadLine();
+
+            if (!int.TryParse(input, out int accountNumber)) // Check if input is a valid integer
+            {
+                Console.WriteLine("Invalid account number.");
+                return;
+            }
+
+            Console.Write("Enter Password: ");
+            string password = ReadPasswordMasked(); 
+            string hashed = HashPassword(password);
+
+            int index = accountNumbers.IndexOf(accountNumber); // Find the index of the account number in the list
+            if (index == -1 || Passwords[index] != hashed) // Check if the account number exists and the password matches
+            {
+                Console.WriteLine("Invalid credentials.");
+                return;
+            }
+
+            Console.WriteLine($"Current Phone: {phoneNumbers[index]}"); // Display current phone number
+            Console.WriteLine($"Current Address: {addresses[index]}"); // Display current address
+
+            Console.Write("Enter New Phone Number (or press Enter to keep current): ");
+            string newPhone = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(newPhone)) // Check if input is not empty
+                phoneNumbers[index] = newPhone; // Update phone number
+
+            Console.Write("Enter New Address (or press Enter to keep current): ");
+            string newAddress = Console.ReadLine();
+            if (!string.IsNullOrWhiteSpace(newAddress)) // Check if input is not empty
+                addresses[index] = newAddress; // Update address
+
+            SaveAllData();
+            Console.WriteLine("Account information updated successfully.");
         }
 
         // Delete Account
@@ -1189,6 +1449,8 @@ namespace MiniBankSystem
                 Console.WriteLine($"Loan Amount: {loans[accountNumbers.IndexOf(accountNumber)]}");
                 Console.WriteLine($"Transaction History: {transactions[accountNumbers.IndexOf(accountNumber)]}");
                 Console.WriteLine($"Loan Transaction History: {transactionsLoan[accountNumbers.IndexOf(accountNumber)]}");
+                Console.WriteLine($"Phone Number: {phoneNumbers[accountNumbers.IndexOf(accountNumber)]}");
+                Console.WriteLine($"Address: {addresses[accountNumbers.IndexOf(accountNumber)]}");
                 Console.WriteLine("===================================");
             }
             catch (Exception ex)
@@ -1226,6 +1488,8 @@ namespace MiniBankSystem
                     Console.WriteLine($"Loan Amount: {loans[i]}");
                     Console.WriteLine($"Transaction History: {transactions[i]}");
                     Console.WriteLine($"Loan Transaction History: {transactionsLoan[i]}");
+                    Console.WriteLine($"Phone Number: {phoneNumbers[i]}");
+                    Console.WriteLine($"Address: {addresses[i]}");
                     Console.WriteLine("------------------------------");
                 }
             }
@@ -1250,19 +1514,21 @@ namespace MiniBankSystem
                 // Get user details
                 Console.Write("Enter Account Number: ");
                 string input = Console.ReadLine();
-                if (!int.TryParse(input, out int accountNumber))
+                if (!int.TryParse(input, out int accountNumber)) // Check if input is a valid integer
                 {
                     Console.WriteLine("Invalid account number.");
                     return;
                 }
 
                 Console.Write("Enter Password: ");
-                string password = Console.ReadLine();
-                if (Passwords[accountNumbers.IndexOf(accountNumber)] != password) // Check if the password is valid
+                string password = ReadPasswordMasked();
+                string hashed = HashPassword(password);
+                if (Passwords[accountNumbers.IndexOf(accountNumber)] != hashed) // Check if the password is valid
                 {
                     Console.WriteLine("Incorrect password.");
                     return;
                 }
+
 
                 // Check if the account number exists
                 CheckAccountExists(accountNumber);
@@ -1302,6 +1568,81 @@ namespace MiniBankSystem
           
         }
 
+        // Deposit with Currency Conversion
+        public static void DepositWithCurrencyConversion()
+        {
+            try
+            {
+                Console.Clear();
+                Console.WriteLine("=== Deposit with Currency Conversion ===");
+                Console.Write("Enter Account Number: ");
+                string input = Console.ReadLine();
+                if (!int.TryParse(input, out int accountNumber)) // Check if input is a valid integer
+                {
+                    Console.WriteLine("Invalid account number.");
+                    return;
+                }
+
+                Console.Write("Enter Password: ");
+                string password = ReadPasswordMasked();
+                string hashed = HashPassword(password);
+                int index = accountNumbers.IndexOf(accountNumber);
+
+                if (index == -1 || Passwords[index] != hashed) // Check if the account number exists and the password matches
+                {
+                    Console.WriteLine("Incorrect password.");
+                    return;
+                }
+
+                Console.WriteLine($"Welcome, {accountNames[index]}");
+                Console.WriteLine($"Your current balance is: {balances[index]}");
+
+                // Choose currency
+                Console.WriteLine("\nChoose Currency to Deposit:");
+                Console.WriteLine("1. OMR (Local)");
+                Console.WriteLine("2. USD (1 USD = 3.8 OMR)");
+                Console.WriteLine("3. EUR (1 EUR = 4.1 OMR)");
+                Console.Write("Choice: ");
+                string currencyOption = Console.ReadLine(); 
+
+                Console.Write("Enter Deposit Amount: ");
+                if (!double.TryParse(Console.ReadLine(), out double originalAmount) || originalAmount <= 0) // Check if Amount is a valid double and greater than 0
+                {
+                    Console.WriteLine("Invalid deposit amount.");
+                    return;
+                }
+
+                double convertedAmount = originalAmount; // Initialize converted amount
+                string currency = "OMR"; // Default currency
+
+                switch (currencyOption)
+                {
+                    case "2":
+                        convertedAmount = originalAmount * 3.8;
+                        currency = "USD";
+                        break;
+                    case "3":
+                        convertedAmount = originalAmount * 4.1;
+                        currency = "EUR";
+                        break;
+                    case "1":
+                    default:
+                        currency = "OMR";
+                        break;
+                }
+
+                balances[index] += convertedAmount; // Update the balance with the converted amount
+                transactions[index] += $"Currency Deposit: {originalAmount} {currency} => {convertedAmount} OMR | {DateTime.Now} "; // Add the deposit transaction to the history
+
+                Console.WriteLine($"Deposit successful! New balance: {balances[index]}");
+                SaveAllData();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error Due to: " + ex.Message);
+            }
+        }
+
         // Process Withdrawal
         public static void ProcessWithdrawal()
         {
@@ -1319,13 +1660,16 @@ namespace MiniBankSystem
                     Console.WriteLine("Invalid account number.");
                     return;
                 }
+
                 Console.Write("Enter Password: ");
-                string password = Console.ReadLine();
-                if (Passwords[accountNumbers.IndexOf(accountNumber)] != password) // Check if the password is valid
+                string password = ReadPasswordMasked();
+                string hashed = HashPassword(password);
+                if (Passwords[accountNumbers.IndexOf(accountNumber)] != hashed)
                 {
                     Console.WriteLine("Incorrect password.");
                     return;
                 }
+
 
                 // Check if the account number exists
                 CheckAccountExists(accountNumber);
@@ -1397,13 +1741,16 @@ namespace MiniBankSystem
                 }
                 // Check if the account number exists
                 CheckAccountExists(fromAccountNumber);
+
                 Console.Write("Enter Password: ");
-                string password = Console.ReadLine();
-                if (Passwords[accountNumbers.IndexOf(fromAccountNumber)] != password) // Check if the password is valid
+                string password = ReadPasswordMasked();
+                string hashed = HashPassword(password);
+                if (Passwords[accountNumbers.IndexOf(fromAccountNumber)] != hashed)
                 {
                     Console.WriteLine("Incorrect password.");
                     return;
                 }
+
                 // Check if the account number exists
                 CheckAccountExists(fromAccountNumber);
                 // print account details
@@ -1487,13 +1834,16 @@ namespace MiniBankSystem
                 }
                 // Check if the account number exists
                 CheckAccountExists(accountNumber);
+
                 Console.Write("Enter Password: ");
-                string password = Console.ReadLine();
-                if (Passwords[accountNumbers.IndexOf(accountNumber)] != password) // Check if the password is valid
+                string password = ReadPasswordMasked();
+                string hashed = HashPassword(password);
+                if (Passwords[accountNumbers.IndexOf(accountNumber)] != hashed)
                 {
                     Console.WriteLine("Incorrect password.");
                     return;
                 }
+
                 Console.WriteLine($"Welcome, {accountNames[accountNumbers.IndexOf(accountNumber)]}.");
                 Console.WriteLine($"Your current balance is: {balances[accountNumbers.IndexOf(accountNumber)]}");
             }
@@ -1511,36 +1861,123 @@ namespace MiniBankSystem
             {
                 Console.Clear();
                 Console.WriteLine("=== Transaction History ===");
-                Console.WriteLine("Please enter your account number and password to view your transaction history.");
-                Console.WriteLine("===================================");
-                // Get user details
+
                 Console.Write("Enter Account Number: ");
-                string input = Console.ReadLine();
-                if (!int.TryParse(input, out int accountNumber)) // Check if the account number is valid
+                if (!int.TryParse(Console.ReadLine(), out int accountNumber))
                 {
-                    Console.WriteLine("Invalid account number format.");
+                    Console.WriteLine("Invalid account number.");
                     return;
                 }
-                // Check if the account number exists
+
                 CheckAccountExists(accountNumber);
 
                 Console.Write("Enter Password: ");
-                string password = Console.ReadLine();
-                if (Passwords[accountNumbers.IndexOf(accountNumber)] != password) // Check if the password is valid
+                string password = ReadPasswordMasked();
+                string hashed = HashPassword(password);
+                int index = accountNumbers.IndexOf(accountNumber);
+
+                if (index == -1 || Passwords[index] != hashed)
                 {
-                    Console.WriteLine("Incorrect password.");
+                    Console.WriteLine("Incorrect credentials.");
                     return;
                 }
-                Console.WriteLine($"Welcome, {accountNames[accountNumbers.IndexOf(accountNumber)]}.");
-                Console.WriteLine($"Transaction History: {transactions[accountNumbers.IndexOf(accountNumber)]}");
-                Console.WriteLine($"Loan Transaction History: {transactionsLoan[accountNumbers.IndexOf(accountNumber)]}");
-                SaveAllData();
+
+                Console.WriteLine("\nChoose filter option:");
+                Console.WriteLine("1. View All Transactions");
+                Console.WriteLine("2. View Last N Transactions");
+                Console.WriteLine("3. View Transactions After Specific Date");
+
+                string option = Console.ReadLine();
+                string[] entries = transactions[index].Split(new[] { " | " }, StringSplitOptions.RemoveEmptyEntries); // Split transactions by " | " delimiter
+                List<string> filtered = new List<string>(); // List to hold filtered transactions
+
+                switch (option)
+                {
+                    case "1":
+                        filtered = entries.ToList(); // View all transactions
+                        break;
+
+                    case "2":
+                        Console.Write("Enter N: ");
+                        if (int.TryParse(Console.ReadLine(), out int n))
+                        {
+                            filtered = entries.Reverse().Take(n).Reverse().ToList(); // Get last N transactions
+                        }
+                        else
+                        {
+                            Console.WriteLine("Invalid number.");
+                            return;
+                        }
+                        break;
+
+                    case "3":
+                        Console.Write("Enter date (yyyy-MM-dd): ");
+                        string inputDate = Console.ReadLine();
+                        if (DateTime.TryParse(inputDate, out DateTime filterDate)) // Parse the date
+                        {
+                            // Filter transactions after the specified date
+                            foreach (var entry in entries)
+                            {
+                                int i = entry.LastIndexOf(':'); // Find the last colon to get the date part
+                                // Ensure the entry has a date part after the last colon
+                                if (i != -1 && DateTime.TryParse(entry.Substring(i + 1).Trim(), out DateTime entryDate)) // Parse the date from the entry
+                                {
+                                    if (entryDate >= filterDate) // Check if the entry date is on or after the filter date
+                                        filtered.Add(entry); // Add to filtered list
+                                }
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Invalid date.");
+                            return;
+                        }
+                        break;
+
+                    default:
+                        Console.WriteLine("Invalid option.");
+                        return;
+                }
+
+                // Print formatted table
+                Console.WriteLine("\nFormatted Transaction History:");
+                Console.WriteLine("------------------------------------------------------------");
+                Console.WriteLine("| Date                | Type       | Amount     | Balance   |");
+                Console.WriteLine("------------------------------------------------------------");
+
+                double runningBalance = 0;
+                foreach (var entry in filtered)
+                {
+                    string[] parts = entry.Split(':');
+                    if (parts.Length < 2) continue;
+
+                    string type = parts[0].Trim();
+                    string rest = parts[1].Trim();
+                    string[] amountAndDate = rest.Split(' ');
+
+                    if (amountAndDate.Length < 2) continue;
+
+                    if (double.TryParse(amountAndDate[0], out double amount))
+                    {
+                        string dateStr = string.Join(" ", amountAndDate.Skip(1));
+                        if (!DateTime.TryParse(dateStr, out DateTime date)) continue;
+
+                        if (type.ToLower().Contains("deposit") || type.ToLower().Contains("transfer from"))
+                            runningBalance += amount;
+                        else if (type.ToLower().Contains("withdrawal") || type.ToLower().Contains("transfer to"))
+                            runningBalance -= amount;
+
+                        Console.WriteLine($"| {date,-19} | {type,-10} | {amount,-10:F2} | {runningBalance,-9:F2} |");
+                    }
+                }
+
+                Console.WriteLine("------------------------------------------------------------");
+
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Error Due to: " + ex.Message);
             }
-         
         }
 
         // Loan Operations
@@ -1564,33 +2001,53 @@ namespace MiniBankSystem
                 }
                 // Check if the account number exists
                 CheckAccountExists(accountNumber);
+
                 Console.Write("Enter Password: ");
-                string password = Console.ReadLine();
-                if (Passwords[accountNumbers.IndexOf(accountNumber)] != password) // Check if the password is valid
+                string password = ReadPasswordMasked();
+                string hashed = HashPassword(password);
+                if (Passwords[accountNumbers.IndexOf(accountNumber)] != hashed)
                 {
                     Console.WriteLine("Incorrect password.");
                     return;
                 }
-                Console.WriteLine($"Welcome, {accountNames[accountNumbers.IndexOf(accountNumber)]}.");
-                Console.Write("Enter Loan Amount: ");
-                double loanAmount = double.Parse(Console.ReadLine());
-                int index = accountNumbers.IndexOf(accountNumber); // Get the index of the account number
-                if (index != -1) // Check if the account number exists
+                int index = accountNumbers.IndexOf(accountNumber);
+
+                if (index != -1)
                 {
-                    // Check if the loan amount is valid
-                    if (loanAmount <= 0)
+                    // Minimum balance 5000
+                    if (balances[index] < 5000)
                     {
-                        Console.WriteLine("Invalid loan amount.");
+                        Console.WriteLine("You must have at least 5000 OMR to apply for a loan.");
                         return;
                     }
-                    // Update the loan amount and transaction history
-                    loans[index] += loanAmount; // Add the loan amount to the account
-                    transactionsLoan[index] += $"Loan Applied: {loanAmount} | {DateTime.Now} "; // Add the loan application to the transaction history
-                    Console.WriteLine($"Loan application successful! Loan Amount: {loanAmount}"); // Display the loan amount
-                }
-                else
-                {
-                    Console.WriteLine("Account not found.");
+
+                    // No active loan
+                    if (loans[index] > 0)
+                    {
+                        Console.WriteLine("You already have an active loan. Repay before applying again.");
+                        return;
+                    }
+                    Console.WriteLine($"Welcome, {accountNames[accountNumbers.IndexOf(accountNumber)]}.");
+                    Console.Write("Enter Loan Amount: ");
+                    double loanAmount = double.Parse(Console.ReadLine());
+                    int index1 = accountNumbers.IndexOf(accountNumber); // Get the index of the account number
+                    if (index1 != -1) // Check if the account number exists
+                    {
+                        // Check if the loan amount is valid
+                        if (loanAmount <= 0)
+                        {
+                            Console.WriteLine("Invalid loan amount.");
+                            return;
+                        }
+                        // Update the loan amount and transaction history
+                        loans[index1] = loanAmount; // Add the loan amount to the account
+                        transactionsLoan[index1] += $"Loan Applied: {loanAmount} | {DateTime.Now} "; // Add the loan application to the transaction history
+                        Console.WriteLine($"Loan application successful! Loan Amount: {loanAmount}"); // Display the loan amount
+                    }
+                    else
+                    {
+                        Console.WriteLine("Account not found.");
+                    }
                 }
             }
             catch (Exception ex)
@@ -1821,6 +2278,116 @@ namespace MiniBankSystem
            
         }
 
+        public static void GenerateMonthlyStatementByUser()
+        {
+            try
+            {
+                Console.Clear();
+                Console.WriteLine("=== Monthly Statement Generator ===");
+
+                // Get account number
+                Console.Write("Enter Account Number: ");
+                string input = Console.ReadLine();
+                if (!int.TryParse(input, out int accountNumber))
+                {
+                    Console.WriteLine("Invalid account number format.");
+                    return;
+                }
+
+                // Check account exists and verify password
+                CheckAccountExists(accountNumber);
+
+                Console.Write("Enter Password: ");
+                string password = ReadPasswordMasked();
+                string hashed = HashPassword(password);
+
+                int index = accountNumbers.IndexOf(accountNumber);
+                if (index == -1 || Passwords[index] != hashed)
+                {
+                    Console.WriteLine("Invalid credentials.");
+                    return;
+                }
+
+                // Ask user to enter desired month and year
+                Console.Write("Enter month (MM): ");
+                string monthInput = Console.ReadLine();
+                Console.Write("Enter year (YYYY): ");
+                string yearInput = Console.ReadLine();
+
+                if (!int.TryParse(monthInput, out int month) || !int.TryParse(yearInput, out int year)) // Check if month and year are valid integers
+                {
+                    Console.WriteLine("Invalid month or year input.");
+                    return;
+                }
+
+                if (month < 1 || month > 12 || year < 1) // Validate month and year range
+                {
+                    Console.WriteLine("Month must be between 1 and 12, and year must be positive.");
+                    return;
+                }
+
+                Console.WriteLine($"Generating statement for {accountNames[index]} for {month:D2}/{year}...");
+
+                // Filter transactions by the selected month/year
+                string[] allTransactions = transactions[index].Split(new[] { " | " }, StringSplitOptions.RemoveEmptyEntries); // Split transactions by " | " delimiter
+                List<string> filtered = new List<string>();
+
+                // Loop through all transactions and filter by month and year
+                foreach (string entry in allTransactions)
+                {
+                    int colonIndex = entry.IndexOf(':'); // Find the first colon to separate type and date
+                    if (colonIndex == -1) continue; // Skip if no colon found
+
+                    string datePart = entry.Substring(colonIndex + 1).Trim(); // Get the date part after the colon
+                    if (DateTime.TryParse(datePart, out DateTime parsedDate)) // Try to parse the date
+                    {
+                        if (parsedDate.Month == month && parsedDate.Year == year) // Check if the transaction date matches the selected month and year
+                        {
+                            // Add the entry to the filtered list
+                            filtered.Add(entry);
+                        }
+                    }
+                }
+
+                // Save to file in text format 
+                string dir = "Statements";
+                
+                // Create directory if it doesn't exist
+                if (!Directory.Exists(dir))
+                    Directory.CreateDirectory(dir); // Create the directory
+
+                string fileName = Path.Combine(dir, $"Statement_Acc{accountNumber}_{year}-{month:D2}.txt"); // Create a file name with account number and date
+                using (StreamWriter writer = new StreamWriter(fileName))
+                {
+                    writer.WriteLine($"Monthly Statement for Account #{accountNumber}");
+                    writer.WriteLine($"Account Name: {accountNames[index]}");
+                    writer.WriteLine($"Month: {month:D2}/{year}");
+                    writer.WriteLine("----------------------------------------");
+
+                    if (filtered.Count == 0)
+                    {
+                        writer.WriteLine("No transactions found for this month.");
+                    }
+                    else
+                    {
+                        foreach (string line in filtered)
+                        {
+                            writer.WriteLine(line);
+                        }
+                    }
+
+                    writer.WriteLine("----------------------------------------");
+                    writer.WriteLine($"Final Balance: {balances[index]}");
+                }
+
+                Console.WriteLine($"\nStatement saved to file: {fileName}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error Due to: " + ex.Message);
+            }
+        }
+
         // Save and Load Accounts in Files
         public static void SaveAccountsToFile()
         {
@@ -1831,6 +2398,7 @@ namespace MiniBankSystem
                     for (int i = 0; i < accountNumbers.Count; i++)
                     {
                         // Safely get each item or default if missing
+                        int accountNumber = (i < accountNumbers.Count) ? accountNumbers[i] : 0;
                         string accountName = (i < accountNames.Count) ? accountNames[i] : "Unknown";
                         string nationalId = (i < NationalId.Count) ? NationalId[i] : "Unknown";
                         double balance = (i < balances.Count) ? balances[i] : 0.0;
@@ -1838,8 +2406,12 @@ namespace MiniBankSystem
                         string password = (i < Passwords.Count) ? Passwords[i] : "password123";
                         string transaction = (i < transactions.Count) ? transactions[i] : "";
                         string transactionLoan = (i < transactionsLoan.Count) ? transactionsLoan[i] : "";
+                        string phoneNumber = (i < phoneNumbers.Count) ? phoneNumbers[i] : "Unknown";
+                        string address = (i < addresses.Count) ? addresses[i] : "Unknown";
 
-                        writer.WriteLine($"{accountNumbers[i]}|{accountName}|{nationalId}|{balance}|{loan}|{password}|{transaction}|{transactionLoan}");
+                        // Write account details to the file
+                        writer.WriteLine($"{accountNumbers[i]}|{accountName}|{nationalId}|{balance}|{loan}|{password}|{transaction}|{transactionLoan}|{phoneNumbers[i]}|{addresses[i]}");
+
                     }
                 }
                
@@ -1859,7 +2431,7 @@ namespace MiniBankSystem
                     foreach (var line in File.ReadAllLines(AccountsFilePath))
                     {
                         var parts = line.Split('|');
-                        if (parts.Length >= 7)
+                        if (parts.Length >= 9)
                         {
                             accountNumbers.Add(int.Parse(parts[0]));
                             accountNames.Add(parts[1]);
@@ -1869,6 +2441,8 @@ namespace MiniBankSystem
                             Passwords.Add(parts[5]);
                             transactions.Add(parts[6]);
                             transactionsLoan.Add(parts.Length > 7 ? parts[7] : "");
+                            phoneNumbers.Add(parts[8]);
+                            addresses.Add(parts[9]);
                         }
                     }
                 }
@@ -1885,7 +2459,7 @@ namespace MiniBankSystem
         public static void SaveAdminAccountsToFile()
         {
             try
-            {        
+            {
                 using (StreamWriter writer = new StreamWriter(AdminFilePath))
                 {
                     for (int i = 0; i < Admins.Count; i++)
@@ -2116,7 +2690,7 @@ namespace MiniBankSystem
             {
                 Console.Clear();
                 Console.WriteLine("=== Submit Review ===");
-                Console.WriteLine("Please enter your review.");
+                Console.WriteLine("Please enter your review and rate the service.");
                 Console.WriteLine("===================================");
                 // Get user details
                 Console.Write("Enter your name: ");
@@ -2138,6 +2712,17 @@ namespace MiniBankSystem
                 string review = Console.ReadLine();
                 // Add the review to the stack
                 reviewsStack.Push(review); // Add the review to the stack
+
+                Console.Write("Rate the service (1 to 5): ");
+                if (int.TryParse(Console.ReadLine(), out int rating) && rating >= 1 && rating <= 5) // Check if parse to integer
+                {
+                    ratings.Add(rating);
+                    Console.WriteLine("Rating submitted.");
+                }
+                else
+                {
+                    Console.WriteLine("Invalid rating. Skipping rating submission.");
+                }
                 SaveAllData();
                 Console.WriteLine("Review submitted successfully!");
             }
@@ -2200,6 +2785,36 @@ namespace MiniBankSystem
                 Console.WriteLine("Error Due to: " + ex.Message);
             }     
         }
+
+        // View Average Rate
+        public static void ViewAverageRating()
+        {
+            try
+            {
+                Console.Clear();
+                Console.WriteLine("=== Average Rating ===");
+
+                if (ratings.Count == 0) // If rating count is 0 then no rate applied
+                {
+                    Console.WriteLine("No ratings submitted yet.");
+                    return;
+                }
+
+                double average = ratings.Average(); 
+                Console.WriteLine($"Average Rating: {average:F2} / 5\n");
+
+                Console.WriteLine("Individual Ratings:");
+                foreach (int r in ratings)
+                {
+                    Console.WriteLine($"- {r}/5");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error Due to: " + ex.Message);
+            }
+        }
+
 
         // Save and Load Reviews in Files
         public static void SaveReviews()
@@ -2327,24 +2942,34 @@ namespace MiniBankSystem
                 Console.Write("Enter Name or National ID to search: ");
                 string searchInput = Console.ReadLine();
 
-                bool found = false;
-                for (int i = 0; i < accountNames.Count; i++)
+                var matched = accountNumbers
+                    .Select((acc, i) => new { Index = i, Name = accountNames[i], ID = NationalId[i] })
+                    .Where(x => x.Name == searchInput || x.ID == searchInput)
+                    .ToList();
+
+                if (!matched.Any())
                 {
-                    if (accountNames[i] == searchInput || NationalId[i] == searchInput)
+                    Console.WriteLine("No account found with the provided name or national ID.");
+                }
+                else
+                {
+                    foreach (var m in matched)
                     {
                         Console.WriteLine("===================================");
-                        Console.WriteLine($"Account Number: {accountNumbers[i]}");
-                        Console.WriteLine($"Account Name: {accountNames[i]}");
-                        Console.WriteLine($"National ID: {NationalId[i]}");
-                        Console.WriteLine($"Balance: {balances[i]}");
-                        Console.WriteLine($"Loan Amount: {loans[i]}");
-                        Console.WriteLine($"Transaction History: {transactions[i]}");
-                        Console.WriteLine($"Loan Transaction History: {transactionsLoan[i]}");
+                        Console.WriteLine($"Account Number: {accountNumbers[m.Index]}");
+                        Console.WriteLine($"Account Name: {accountNames[m.Index]}");
+                        Console.WriteLine($"National ID: {NationalId[m.Index]}");
+                        Console.WriteLine($"Balance: {balances[m.Index]}");
+                        Console.WriteLine($"Loan: {loans[m.Index]}");
+                        Console.WriteLine($"Transaction History: {transactions[m.Index]}");
+                        Console.WriteLine($"Loan Transaction History: {transactionsLoan[m.Index]}");
+                        Console.WriteLine($"Phone Number: {phoneNumbers[m.Index]}");
+                        Console.WriteLine($"Address: {addresses[m.Index]}");
                         Console.WriteLine("===================================");
-                        found = true;
                     }
                 }
 
+                bool found = matched.Any(); // Check if any account was found
                 if (!found)
                 {
                     Console.WriteLine("No account found with the provided name or national ID.");
@@ -2378,20 +3003,24 @@ namespace MiniBankSystem
                     Console.WriteLine("Invalid name format.");
                     return;
                 }
+
                 Console.Write("Enter Old Pin: ");
-                string oldPin = Console.ReadLine();
-                if (PinCodeAdmins[Admins.IndexOf(name)] != oldPin) // Check if the old password is valid
+                string oldPin = ReadPasswordMasked();
+                string hashedOld = HashPassword(oldPin);
+                int index = Admins.IndexOf(name);
+                if (index == -1 || PinCodeAdmins[index] != hashedOld)
                 {
-                    Console.WriteLine("Incorrect password.");
+                    Console.WriteLine("Incorrect pin.");
                     return;
                 }
 
-                Console.Write("Enter New Password: ");
-                string newPin = Console.ReadLine(); // Get the new password
-                int index = Admins.IndexOf(name); // Get the index of the account number
-                if (index != -1)
+                Console.Write("Enter New Pin: ");
+                string newPin = ReadPasswordMasked();
+                string hashedNew = HashPassword(newPin);
+                int index1 = Admins.IndexOf(name); // Get the index of the account number
+                if (index1 != -1)
                 {
-                    PinCodeAdmins[index] = newPin; // Update the password
+                    PinCodeAdmins[index1] = hashedNew; // Update the password
                     Console.WriteLine($"Pin changed successfully for Admin: {name}");
                 }
                 else
@@ -2422,20 +3051,24 @@ namespace MiniBankSystem
                     Console.WriteLine("Invalid name format.");
                     return;
                 }
+
                 Console.Write("Enter Old Pin: ");
-                string oldPin = Console.ReadLine();
-                if (PinCodeCustomers[Customers.IndexOf(name)] != oldPin) // Check if the old password is valid
+                string oldPin = ReadPasswordMasked();
+                string hashedOld = HashPassword(oldPin);
+                int index = Customers.IndexOf(name);
+                if (index == -1 || PinCodeCustomers[index] != hashedOld)
                 {
-                    Console.WriteLine("Incorrect password.");
+                    Console.WriteLine("Incorrect pin.");
                     return;
                 }
 
-                Console.Write("Enter New Password: ");
-                string newPin = Console.ReadLine(); // Get the new password
-                int index = Customers.IndexOf(name); // Get the index of the account number
-                if (index != -1)
+                Console.Write("Enter New Pin: ");
+                string newPin = ReadPasswordMasked();
+                string hashedNew = HashPassword(newPin);
+                int index1 = Customers.IndexOf(name); // Get the index of the account number
+                if (index1 != -1)
                 {
-                    PinCodeCustomers[index] = newPin; // Update the password
+                    PinCodeCustomers[index1] = hashedNew; // Update the password
                     Console.WriteLine($"Pin changed successfully for name: {name}");
                 }
                 else
@@ -2466,23 +3099,27 @@ namespace MiniBankSystem
                     Console.WriteLine("Invalid account number format.");
                     return;
                 }
-                Console.Write("Enter Old Password: ");
-                string oldPassword = Console.ReadLine();
-                if (Passwords[accountNumbers.IndexOf(accountNumber)] != oldPassword) // Check if the old password is valid
-                {
-                    Console.WriteLine("Incorrect password.");
-                    return;
-                }
 
                 // Check if the account number exists
                 CheckAccountExists(accountNumber);
 
-                Console.Write("Enter New Password: ");
-                string newPassword = Console.ReadLine(); // Get the new password
+                Console.Write("Enter Old Password: ");
+                string oldPassword = ReadPasswordMasked();
+                string hashedOld = HashPassword(oldPassword);
                 int index = accountNumbers.IndexOf(accountNumber); // Get the index of the account number
-                if (index != -1)
+                if (Passwords[index] != hashedOld)
                 {
-                    Passwords[index] = newPassword; // Update the password
+                    Console.WriteLine("Incorrect old password.");
+                    return;
+                }
+
+                Console.Write("Enter New Password: ");
+                string newPassword = ReadPasswordMasked();
+                string hashedNew = HashPassword(newPassword);
+                int index1 = accountNumbers.IndexOf(accountNumber); // Get the index of the account number
+                if (index1 != -1)
+                {
+                    Passwords[index1] = hashedNew; // Update Password
                     Console.WriteLine($"Password changed successfully for Account Number: {accountNumber}");
                 }
                 else
@@ -2631,6 +3268,209 @@ namespace MiniBankSystem
         
         }
 
+        // Book Appointment
+        public static void BookAppointment()
+        {
+            try
+            {
+                Console.Clear();
+                Console.WriteLine("=== Book an Appointment ===");
+
+                Console.Write("Enter Account Number: ");
+                if (!int.TryParse(Console.ReadLine(), out int accountNumber)) // Check if the account number is valid
+                {
+                    Console.WriteLine("Invalid account number.");
+                    return;
+                }
+
+                CheckAccountExists(accountNumber); // Check if the account number exists
+                int index = accountNumbers.IndexOf(accountNumber); // Get the index of the account number
+
+                if (index == -1) // If the account number does not exist
+                {
+                    Console.WriteLine("Account not found.");
+                    return;
+                }
+
+                Console.Write("Enter Password: ");
+                string password = ReadPasswordMasked(); // Read the password masked
+                string hashed = HashPassword(password); // Hash the password
+
+                if (index == -1 || Passwords[index] != hashed) // Check if the password is valid
+                {
+                    Console.WriteLine("Incorrect credentials.");
+                    return;
+                }
+
+                // Check if already booked
+                foreach (string appointment in appointments) // Iterate through each appointment
+                { 
+                    if (appointment.Contains($"#{accountNumber}")) // Check if the appointment contains the account number
+                    {
+                        Console.WriteLine("You already have an appointment booked.");
+                        return;
+                    }
+                }
+
+                Console.Write("Choose Service [1] Loan Discussion  [2] Account Consultation: ");
+                string service = Console.ReadLine() == "1" ? "Loan Discussion" : "Account Consultation"; // Choose service based on user input
+
+                Console.Write("Enter preferred date and time (yyyy-MM-dd HH:mm): ");
+                string input = Console.ReadLine();
+
+                if (!DateTime.TryParse(input, out DateTime dateTime)) // Try to parse the date and time
+                {
+                    Console.WriteLine("Invalid date/time format.");
+                    return;
+                }
+
+                string entry = $"#{accountNumber} - {accountNames[index]} - {service} - {dateTime}";
+                appointments.Enqueue(entry); // Add the appointment to the queue
+
+                Console.WriteLine("Appointment booked successfully!");
+                SaveAllData();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error Due to: " + ex.Message);
+            }
+        }
+
+        // View My Appointment
+        public static void ViewMyAppointment()
+        {
+            try
+            {
+                Console.Clear();
+                Console.WriteLine("=== View My Appointment ===");
+
+                Console.Write("Enter Account Number: ");
+                if (!int.TryParse(Console.ReadLine(), out int accountNumber)) // Check if the account number is valid
+                {
+                    Console.WriteLine("Invalid account number.");
+                    return;
+                }
+
+                CheckAccountExists(accountNumber); // Check if the account number exists
+                int index = accountNumbers.IndexOf(accountNumber); // Get the index of the account number
+
+                Console.Write("Enter Password: ");
+                string password = ReadPasswordMasked();
+                string hashed = HashPassword(password);
+
+                if (index == -1 || Passwords[index] != hashed) // Check if the password is valid
+                {
+                    Console.WriteLine("Incorrect credentials.");
+                    return;
+                }
+
+                bool found = false; // Flag to check if appointment is found
+                foreach (string appointment in appointments) // Iterate through each appointment
+                {
+                    if (appointment.Contains($"#{accountNumber}")) // Check if the appointment contain account number
+                    {
+                        Console.WriteLine("Your Appointment Details:");
+                        Console.WriteLine("- " + appointment); // Print the appointment details
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
+                {
+                    Console.WriteLine("You have no active appointments.");
+                }
+
+                Console.WriteLine("Press any key to return...");
+                Console.ReadLine();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error Due to: " + ex.Message);
+            }
+        }
+
+        // View Appointment by Account Number
+        public static void ViewAppointmentByAccount()
+        {
+            try
+            {
+                Console.Clear();
+                Console.WriteLine("=== Search Appointment by Account Number ===");
+
+                Console.Write("Enter Account Number: ");
+                if (!int.TryParse(Console.ReadLine(), out int accountNumber)) // Check if the account number is valid
+                {
+                    Console.WriteLine("Invalid account number.");
+                    return;
+                }
+
+                bool found = false; // Flag to check if appointment is found
+                foreach (string appt in appointments) // Iterate through each appointment
+                {
+                    if (appt.StartsWith($"#{accountNumber}")) // Check if the appointment starts with the account number
+                    {
+                        Console.WriteLine("\nAppointment Found:");
+                        Console.WriteLine("------------------------------------------");
+                        Console.WriteLine(appt); // Print the appointment details
+                        Console.WriteLine("------------------------------------------");
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found)
+                {
+                    Console.WriteLine("No appointment found for this account.");
+                }
+
+                Console.WriteLine("Press any key to return...");
+                Console.ReadLine();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error Due to: " + ex.Message);
+            }
+        }
+
+        // View All Appointments
+        public static void ViewAppointments()
+        {
+            Console.Clear();
+            Console.WriteLine("=== All Booked Appointments ===");
+
+            if (appointments.Count == 0) // Check if there are any appointments booked
+            {
+                Console.WriteLine("No appointments booked.");
+                return;
+            }
+
+            Console.WriteLine("\nFormatted Appointments:");
+            Console.WriteLine("--------------------------------------------------------------");
+            Console.WriteLine("| Account # | Name               | Service           | Date/Time           |");
+            Console.WriteLine("--------------------------------------------------------------");
+
+            foreach (var appt in appointments) // Iterate through each appointment
+            {
+                // Example format: "#123456 - John Doe - Loan Discussion - 2025-07-01 14:30:00"
+                string[] parts = appt.Split(new[] { " - " }, StringSplitOptions.None); // Split the appointment string into parts
+                if (parts.Length == 4) // Check if the appointment has the correct number of parts
+                {
+                    string acc = parts[0].Replace("#", "").Trim(); // Remove the '#' and trim whitespace
+                    string name = parts[1].Trim(); // Get the name and trim whitespace
+                    string service = parts[2].Trim(); // Get the service and trim whitespace
+                    string date = parts[3].Trim(); // Get the date and trim whitespace
+
+                    Console.WriteLine($"| {acc,-9} | {name,-18} | {service,-16} | {date,-18} |");
+                }
+            }
+
+            Console.WriteLine("--------------------------------------------------------------");
+            Console.WriteLine($"Total Appointments: {appointments.Count}");
+            Console.WriteLine("Press any key to return...");
+            Console.ReadLine();
+        }
+
         // Currency Converter
         public static void CurrencyConverter()
         {
@@ -2706,49 +3546,29 @@ namespace MiniBankSystem
             try
             {
                 Console.Clear();
-                Console.WriteLine("=== Top 3 Richest Customers ===");
+                Console.WriteLine("=== Top 3 Richest Customers Using LINQ ===");
 
-                // Prepare list of indices
-                List<int> BalanceTemp = new List<int>();
-                for (int i = 0; i < balances.Count; i++)
-                {
-                    BalanceTemp.Add(i);
-                }
+                var top3 = accountNumbers // LINQ to get top 3 richest customers
+                    .Select((acc, i) => new { AccountNumber = acc, Name = accountNames[i], Balance = balances[i], Loan = loans[i] }) // Create an anonymous object with account details
+                    .OrderByDescending(x => x.Balance).Take(3).ToList(); // Order by balance descending and take top 3 customers and convert it to list
 
-                // sort by balance descending
-                for (int i = 0; i < BalanceTemp.Count - 1; i++)
-                {
-                    for (int j = i + 1; j < BalanceTemp.Count; j++)
-                    {
-                        if (balances[BalanceTemp[j]] > balances[BalanceTemp[i]])
-                        {
-                            // Swap Balance
-                            int temp = BalanceTemp[i];
-                            BalanceTemp[i] = BalanceTemp[j];
-                            BalanceTemp[j] = temp;
-                        }
-                    }
-                }
-
-                // Display top 3 customers
-                int topCount = Math.Min(3, BalanceTemp.Count);
-                for (int i = 0; i < topCount; i++)
-                {
-                    int index = BalanceTemp[i];
-                    Console.WriteLine("===================================");
-                    Console.WriteLine($"Rank #{i + 1}");
-                    Console.WriteLine($"Account Number: {accountNumbers[index]}");
-                    Console.WriteLine($"Name: {accountNames[index]}");
-                    Console.WriteLine($"Balance: {balances[index]}");
-                    Console.WriteLine($"Loan: {loans[index]}");
-                    Console.WriteLine("===================================");
-                }
-
-                if (topCount == 0)
+                if (!top3.Any()) // Check if there are any accounts
                 {
                     Console.WriteLine("No accounts available.");
+                    return;
                 }
 
+                foreach (var customer in top3) // Iterate through each top 3 customer
+                {
+                    Console.WriteLine("===================================");
+                    Console.WriteLine($"Account Number: {customer.AccountNumber}");
+                    Console.WriteLine($"Name: {customer.Name}");
+                    Console.WriteLine($"Balance: {customer.Balance}");
+                    Console.WriteLine($"Loan: {customer.Loan}");
+                    Console.WriteLine("===================================");
+                }
+
+                Console.WriteLine("===================================");
                 Console.WriteLine("Press any key to continue...");
                 Console.ReadLine();
             }
@@ -2756,7 +3576,131 @@ namespace MiniBankSystem
             {
                 Console.WriteLine("Error Due to: " + ex.Message);
             }
-       
+        }
+
+        // Show Locked Accounts
+        public static void ShowLockedAccounts()
+        {
+            Console.Clear();
+            Console.WriteLine("=== Locked Accounts ===");
+
+            var locked = accountNumbers // LINQ to filter locked accounts
+                .Select((acc, i) => new
+                { // Create an anonymous object with account details
+                    AccountNumber = acc,
+                    Name = accountNames[i],
+                    Locked = isAccountLocked[i]
+                })
+                .Where(x => x.Locked).ToList(); // Filter accounts that are locked and convert it to list
+
+            if (locked.Count == 0) // Check if there are any locked accounts
+            {
+                Console.WriteLine("No locked accounts.");
+                return;
+            }
+
+            foreach (var acc in locked) // Iterate through each locked account
+            {
+                Console.WriteLine($"Account: {acc.AccountNumber} | Name: {acc.Name}");
+            }
+        }
+
+        // Show Accounts with Active Loans
+        public static void ShowAccountsWithActiveLoans()
+        {
+            Console.Clear();
+            Console.WriteLine("=== Accounts with Active Loans ===");
+
+            var activeLoans = accountNumbers // LINQ to filter accounts with active loans
+                .Select((acc, i) => new
+                { // Create an anonymous object with account details
+                    AccountNumber = acc,
+                    Name = accountNames[i],
+                    Loan = loans[i]
+                })
+                .Where(x => x.Loan > 0).ToList(); // Filter accounts with loan greater than 0 and convert it to list
+
+            if (activeLoans.Count == 0) // Check if there are any active loans
+            {
+                Console.WriteLine("No active loans found.");
+                return;
+            }
+
+            foreach (var acc in activeLoans) // Iterate through each account with active loan
+            {
+                Console.WriteLine($"Account #: {acc.AccountNumber} | Name: {acc.Name} | Loan: {acc.Loan}");
+            }
+        }
+
+        // Show Accounts with Low Balance
+        public static void ShowLowBalanceAccounts()
+        {
+            Console.Clear();
+            Console.WriteLine("=== Accounts with Low Balance (< 100) ===");
+
+            var low = accountNumbers // LINQ to filter accounts with low balance
+                .Select((acc, i) => new
+                { // Create an anonymous object with account details
+                    AccountNumber = acc, // Account number
+                    Name = accountNames[i], // Account name
+                    Balance = balances[i] // Account balance
+                })
+                .Where(x => x.Balance < 100) // Filter accounts with balance less than 100
+                .ToList(); // Convert to a list for easy iteration
+
+            if (!low.Any()) // Check if there are any low balance accounts
+            {
+                Console.WriteLine("No low balance accounts.");
+                return;
+            }
+
+            foreach (var acc in low) // Iterate through each low balance account
+            {
+                Console.WriteLine($"Account #: {acc.AccountNumber} | Name: {acc.Name} | Balance: {acc.Balance}");
+            }
+        }
+
+
+        // Hash a password using SHA256
+        public static string HashPassword(string password)
+        {
+            using (var sha = System.Security.Cryptography.SHA256.Create()) // Create a new instance of SHA256
+            {
+                var bytes = System.Text.Encoding.UTF8.GetBytes(password); // Convert the password to bytes using UTF8 encoding
+                var hash = sha.ComputeHash(bytes); // Compute the hash of the password bytes
+                return Convert.ToBase64String(hash); // Convert the hash to a Base64 string for storage
+            }
+        }
+
+        // Read password with masking 
+        public static string ReadPasswordMasked()
+        {
+            // I use String Builder to build or manipulate strings because i do a lot of string modify like appending, removing, or inserting text.
+
+            StringBuilder password = new StringBuilder(); // Initialize a StringBuilder to hold the password
+            ConsoleKeyInfo key; // Declare a variable to hold the key pressed
+
+            while (true)
+            {
+                key = Console.ReadKey(true); // Read the key without displaying it in the console
+                if (key.Key == ConsoleKey.Enter) // If the Enter key is pressed
+                {
+                    Console.WriteLine(); 
+                    break;
+                }
+                else if (key.Key == ConsoleKey.Backspace && password.Length > 0) // If the Backspace key is pressed and the password is not empty
+                {
+                    password.Remove(password.Length - 1, 1); // Remove the last character from the password
+                    Console.Write("\b \b");
+                }
+                else if (!char.IsControl(key.KeyChar)) // If the key pressed is not a control character
+                {
+                    password.Append(key.KeyChar); // Append the character to the password
+                    Console.Write("*");
+                }
+            }
+
+            return password.ToString();
         }
 
         // Save and Load All Data
