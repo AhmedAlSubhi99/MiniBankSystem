@@ -513,7 +513,8 @@ namespace MiniBankSystem
                     Console.WriteLine("    ║  [15]   View My Appointments         ║");
                     Console.WriteLine("    ║  [16]   Currency Deposit             ║");
                     Console.WriteLine("    ║  [17]   Change Pin                   ║");
-                    Console.WriteLine("    ║  [18]   Logout                       ║");
+                    Console.WriteLine("    ║  [18]   Undo Last Review             ║");
+                    Console.WriteLine("    ║  [19]   Logout                       ║");
                     Console.WriteLine("    ║                                      ║");
                     Console.WriteLine("    ╚══════════════════════════════════════╝");
 
@@ -577,6 +578,9 @@ namespace MiniBankSystem
                             ChangePinCustomers(); // Change Pin
                             break;
                         case "18":
+                            UndoLastReview(); // Undo last review
+                            break;
+                        case "19":
                             Console.WriteLine("Login Out .........");
                             return;
                         default:
@@ -682,7 +686,8 @@ namespace MiniBankSystem
                     Console.WriteLine("    ║  [17]   View Locked Accounts         ║");
                     Console.WriteLine("    ║  [18]   View Accounts with Loans     ║");
                     Console.WriteLine("    ║  [19]   View Low Balance Accounts    ║");
-                    Console.WriteLine("    ║  [20]   Logout                       ║");
+                    Console.WriteLine("    ║  [20]   Show Total Bank Balance      ║");
+                    Console.WriteLine("    ║  [21]   Logout                       ║");
                     Console.WriteLine("    ║                                      ║");
                     Console.WriteLine("    ╚══════════════════════════════════════╝");
 
@@ -768,6 +773,9 @@ namespace MiniBankSystem
                             ShowLowBalanceAccounts(); // Show accounts with low balance
                             break;
                         case "20":
+                            ShowTotalBankBalance(); // Show total bank balance
+                            break;
+                        case "21":
                             Console.WriteLine("Logging out...");
                             return;
                         default:
@@ -3660,6 +3668,57 @@ namespace MiniBankSystem
             }
         }
 
+        // Undo Last Submitted Review
+        public static void UndoLastReview()
+        {
+            try
+            {
+                Console.Clear();
+                Console.WriteLine("=== Undo Last Review ===");
+
+                if (reviewsStack.Count == 0) // Check if there are any reviews to undo
+                {
+                    Console.WriteLine("No reviews to undo.");
+                    return;
+                }
+
+                Console.Write("Are you sure you want to remove your last review? (y/n): "); 
+                string confirm = Console.ReadLine();
+                if (confirm.ToLower() == "y") // Check if the user confirmed the removal
+                {
+                    string removed = reviewsStack.Pop(); // Remove the last review from the stack
+                    Console.WriteLine("Last review removed: " + removed);
+                    SaveAllData();
+                }
+                else
+                {
+                    Console.WriteLine("Operation cancelled.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error Due to: " + ex.Message);
+            }
+        }
+
+        // Show Total Bank Balance
+        public static void ShowTotalBankBalance()
+        {
+            try
+            {
+                Console.Clear();
+                Console.WriteLine("=== Total Bank Balance ===");
+                double totalBalance = balances.Sum(); // Calculate the total balance using LINQ
+                double totalLoans = loans.Sum(); // Calculate the total loans using LINQ
+                Console.WriteLine($"Total Balance in Bank: {totalBalance}");
+                Console.WriteLine($"Total Loans Given: {totalLoans}");
+                Console.WriteLine($"Net Balance (Total Balance - Total Loans): {totalBalance - totalLoans}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error Due to: " + ex.Message);
+            }
+        }
 
         // Hash a password using SHA256
         public static string HashPassword(string password)
